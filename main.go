@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"proto/protocol"
 )
 
@@ -14,7 +15,7 @@ import (
 // 1.统一的Field结构体，统一的方法
 // 2.不同的结构体，同一个接口
 func main() {
-	//var data = []byte{0x68, 0x01, 0x97}
+	var data = []byte{0x68, 0x01, 0x97}
 	//var adu = Adu{}
 	//
 	////起始值 --保存起始值，判断起始值是否正确
@@ -34,11 +35,15 @@ func main() {
 	//adu.AddField(Data)
 	//adu.Info()
 	//adu.Debug(nil, data)
-
-	//
-
 	builder := protocol.NewProtoBuilder()
-	builder.SetStart(1, 0x86, binary.BigEndian).
-		SetDataLength(2, binary.LittleEndian).
-		SetVerify(2, binary.LittleEndian, nil)
+	builder.SetStart(1, 0x68, binary.BigEndian).
+		SetDataLength(1, binary.LittleEndian)
+	//SetVerify(2, binary.LittleEndian, nil)
+	proto := builder.Build()
+	m, err := proto.UnWrap(data)
+	if err != nil {
+		fmt.Printf("unwrap error:%v\n", err)
+		return
+	}
+	fmt.Printf("result:%v\n", m)
 }

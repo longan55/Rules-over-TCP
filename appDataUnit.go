@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"proto/protocol"
 	"reflect"
 )
@@ -62,8 +61,8 @@ func (adu *Adu) Debug(r io.Reader, source []byte) {
 
 		//处理方法
 		err := field.Deal(data)
-		if err != nil {
-			log.Println("数据解析出错! [error]:", err)
+		if err != nil { //log.Println("数据解析出错! [error]:", err)
+
 		}
 	}
 }

@@ -3,14 +3,14 @@ package protocol
 import (
 	"encoding/binary"
 	"errors"
-	"log"
+	"fmt"
 	"strconv"
 )
 
 // Protocol 协议接口, 功能包括：1.封包 2.解包 3.检查协议，可以跟解包封包一起
 type Protocol interface {
 	Wrap(Protocol) []byte
-	UnWrap([]byte) Protocol
+	UnWrap([]byte) (map[string]any, error)
 	Check() error
 }
 
@@ -28,18 +28,20 @@ type DefProto struct {
 	fields []field
 }
 
-func (p DefProto) UnWrap(in []byte) Protocol {
+func (p *DefProto) UnWrap(in []byte) (map[string]any, error) {
 	offset := 0
+	m := make(map[string]any)
 	for _, field := range p.fields {
-		field.RealValue = in[offset : offset + int(field.Len)]
+		field.RealValue = in[offset : offset+int(field.Len)]
 		offset += int(field.Len)
 		_, err := field.Check(field.RealValue)
-		if err != nil{
-			log.Println(field.name+"解析错误：", err)
-			return nil
+		if err != nil {
+			fmt.Printf("发生错误：%v\n", err)
+			return nil, err
 		}
+		m[field.name] = field.RealValue
 	}
-	return &p
+	return m, nil
 }
 
 type field struct {
@@ -48,7 +50,7 @@ type field struct {
 	scale        uint8            // 1十六进制，0十进制
 	Len          byte             //消息帧 元素本身长度
 	DefaultValue int64            //默认值
-	RealValue    []byte            //真实值
+	RealValue    []byte           //真实值
 	Order        binary.ByteOrder //大小端
 	Check        func([]byte) (any, error)
 	IsAsciiChar  bool //true ASCII字符，false 数值
@@ -101,6 +103,7 @@ func (pb *ProtoBuilder) SetDataLength(selfLength byte, order binary.ByteOrder) *
 			if err != nil {
 				return nil, errors.New("Data Length translate to uint64 wrong :" + err.Error())
 			}
+			//todo 以某种方式将Data接入
 			return i, nil
 		},
 	}
@@ -124,4 +127,9 @@ func (pb *ProtoBuilder) SetVerify(selfLength byte, order binary.ByteOrder, verif
 	}
 	pb.proto.fields = append(pb.proto.fields, f)
 	return pb
+}
+
+func (pb *ProtoBuilder) Build() Protocol {
+	fmt.Printf("protocol fields len：%d\n", len(pb.proto.fields))
+	return pb.proto
 }
