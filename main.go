@@ -37,7 +37,8 @@ func main() {
 	//adu.Debug(nil, data)
 	builder := protocol.NewProtoBuilder()
 	builder.SetStart(1, 0x68, binary.BigEndian).
-		SetDataLength(1, binary.LittleEndian)
+		SetDataLength(1, binary.LittleEndian).
+		SetData(1, binary.LittleEndian)
 	//SetVerify(2, binary.LittleEndian, nil)
 	proto := builder.Build()
 	m, err := proto.UnWrap(data)

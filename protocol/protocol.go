@@ -17,13 +17,13 @@ type Protocol interface {
 // DefProto 协议实体，存储协议信息。 协议字段顺序、编码方式、默认值等
 type DefProto struct {
 	Protocol
-	StartCode          any    //起始码
-	DataLength         any    //数据长度
-	EncryptionFlag     byte   //加密标志
-	SerialNumber       any    //序列号
-	ConfirmationNumber any    //确认号
-	Data               []byte //数据域
-	CheckCode          any    //校验码
+	StartCode          any      //起始码
+	DataLength         chan int //数据长度
+	EncryptionFlag     byte     //加密标志
+	SerialNumber       any      //序列号
+	ConfirmationNumber any      //确认号
+	Data               []byte   //数据域
+	CheckCode          any      //校验码
 	//
 	fields []field
 }
@@ -32,8 +32,8 @@ func (p *DefProto) UnWrap(in []byte) (map[string]any, error) {
 	offset := 0
 	m := make(map[string]any)
 	for _, field := range p.fields {
-		field.RealValue = in[offset : offset+int(field.Len)]
-		offset += int(field.Len)
+		field.RealValue = in[offset : offset+field.length()]
+		offset += field.length()
 		_, err := field.Check(field.RealValue)
 		if err != nil {
 			fmt.Printf("发生错误：%v\n", err)
@@ -44,14 +44,19 @@ func (p *DefProto) UnWrap(in []byte) (map[string]any, error) {
 	return m, nil
 }
 
+type fieldInterface interface {
+	length() int
+}
+
 type field struct {
 	name string //消息帧 元素名字
 	//FType        fieldType      //消息帧 字段类型
 	scale        uint8            // 1十六进制，0十进制
-	Len          byte             //消息帧 元素本身长度
+	Len          int              //消息帧 元素本身长度
 	DefaultValue int64            //默认值
 	RealValue    []byte           //真实值
 	Order        binary.ByteOrder //大小端
+	length       func() int       //获取长度
 	Check        func([]byte) (any, error)
 	IsAsciiChar  bool //true ASCII字符，false 数值
 }
@@ -69,7 +74,7 @@ func NewProtoBuilder() *ProtoBuilder {
 }
 
 // SetStart byteLength：占用字节长度，defaultValue：默认值,order：大小端
-func (pb *ProtoBuilder) SetStart(selfLength byte, defaultValue int64, order binary.ByteOrder) *ProtoBuilder {
+func (pb *ProtoBuilder) SetStart(selfLength int, defaultValue int64, order binary.ByteOrder) *ProtoBuilder {
 	var f = field{
 		name:         "Start Code",
 		scale:        0,
@@ -85,6 +90,9 @@ func (pb *ProtoBuilder) SetStart(selfLength byte, defaultValue int64, order bina
 			}
 			return nil, errors.New("StartCode is not " + strconv.Itoa(int(defaultValue)))
 		},
+		length: func() int {
+			return selfLength
+		},
 	}
 	//加入fields队列
 	pb.proto.fields = append(pb.proto.fields, f)
@@ -92,7 +100,9 @@ func (pb *ProtoBuilder) SetStart(selfLength byte, defaultValue int64, order bina
 	return pb
 }
 
-func (pb *ProtoBuilder) SetDataLength(selfLength byte, order binary.ByteOrder) *ProtoBuilder {
+func (pb *ProtoBuilder) SetDataLength(selfLength int, order binary.ByteOrder) *ProtoBuilder {
+	var c = make(chan int, 1)
+	pb.proto.DataLength = c
 	var f = field{
 		name:  "Data Length",
 		scale: 0,
@@ -103,15 +113,39 @@ func (pb *ProtoBuilder) SetDataLength(selfLength byte, order binary.ByteOrder) *
 			if err != nil {
 				return nil, errors.New("Data Length translate to uint64 wrong :" + err.Error())
 			}
-			//todo 以某种方式将Data接入
+			c <- int(i)
 			return i, nil
+		},
+		length: func() int {
+			return selfLength
 		},
 	}
 	pb.proto.fields = append(pb.proto.fields, f)
 	return pb
 }
 
-func (pb *ProtoBuilder) SetVerify(selfLength byte, order binary.ByteOrder, verify func([]byte) error) *ProtoBuilder {
+func (pb *ProtoBuilder) SetData(selfLength int, order binary.ByteOrder) *ProtoBuilder {
+	var f = field{
+		name:  "Data Length",
+		scale: 0,
+		Len:   selfLength,
+		Order: order,
+		Check: func(dataLength []byte) (any, error) {
+			i, err := BIN2Uint64(dataLength, order)
+			if err != nil {
+				return nil, errors.New("Data Length translate to uint64 wrong :" + err.Error())
+			}
+			return i, nil
+		},
+		length: func() int {
+			return <-pb.proto.DataLength
+		},
+	}
+	pb.proto.fields = append(pb.proto.fields, f)
+	return pb
+}
+
+func (pb *ProtoBuilder) SetVerify(selfLength int, order binary.ByteOrder, verify func([]byte) error) *ProtoBuilder {
 	var f = field{
 		name:  "Verify Code",
 		scale: 0,
