@@ -138,7 +138,8 @@ func (pb *ProtoBuilder) SetData(selfLength int, order binary.ByteOrder) *ProtoBu
 			return i, nil
 		},
 		length: func() int {
-			return <-pb.proto.DataLength
+			// return <-pb.proto.DataLength
+			return selfLength
 		},
 	}
 	pb.proto.fields = append(pb.proto.fields, f)
