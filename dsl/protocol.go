@@ -52,11 +52,11 @@ type CheckSum struct {
 }
 
 /*
-	StartCode          any      //起始码
-	DataLength         chan int //数据长度
+	StartCode          any      //起始码 V
+	DataLength         chan int //数据长度 V
 	EncryptionFlag     byte     //加密标志
 	SerialNumber       any      //序列号
 	ConfirmationNumber any      //确认号
-	Data               []byte   //数据域
-	CheckCode          any      //校验码
+	Data               []byte   //数据域 V
+	CheckCode          any      //校验码 V
 */

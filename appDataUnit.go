@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"proto/protocol"
 	"reflect"
+
+	"github.com/longan55/proto/protocol"
 )
 
 //通过框架配置协议，框架自动解析和封装，无需自己开发。

@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"proto/protocol"
+
+	"github.com/longan55/proto/protocol"
 )
 
 // 起始符 数据长度    数据域  校验
