@@ -73,6 +73,10 @@ func NewProtoBuilder() *ProtoBuilder {
 	}
 }
 
+func (pb *ProtoBuilder) AddField(f field) {
+
+}
+
 // SetStart byteLength：占用字节长度，defaultValue：默认值,order：大小端
 func (pb *ProtoBuilder) SetStart(selfLength int, defaultValue int64, order binary.ByteOrder) *ProtoBuilder {
 	var f = field{

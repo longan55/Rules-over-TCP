@@ -5,11 +5,11 @@ type Protocol struct {
 }
 
 type Start struct {
-	Index int
-	Value []byte
+	Index int    `json:"index"`
+	Value []byte `json:"value"`
 }
 type DataLength struct {
-	Index      int
+	Index      int    `json:"index"`
 	SelfLength int    //表示"长度"的数据长度不超过2字节
 	Encoding   string //BCD、BIN、ASCII
 	Endian     int    //0小端,1大端

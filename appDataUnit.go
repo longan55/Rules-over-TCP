@@ -52,7 +52,7 @@ func (adu *Adu) Debug(r io.Reader, source []byte) {
 		//根据元素Field获取对应数据切片
 		data := source[offset : offset+field.Length()]
 		//更新偏移量
-		offset = offset + field.Length()
+		offset += field.Length()
 		//debug打印元素
 		if field.Scale() == 0 {
 			fmt.Printf("[%s] = %0d", field.Name(), data)
@@ -63,7 +63,7 @@ func (adu *Adu) Debug(r io.Reader, source []byte) {
 		//处理方法
 		err := field.Deal(data)
 		if err != nil { //log.Println("数据解析出错! [error]:", err)
-
+			fmt.Printf("数据解析出错! [error]: %v\n", err)
 		}
 	}
 }
