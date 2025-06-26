@@ -1,4 +1,4 @@
-package main
+package protocol
 
 type DataPacker interface {
 	Pack() []byte
