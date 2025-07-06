@@ -57,9 +57,6 @@ func Uint2BIN(n uint64, len uint8, order binary.ByteOrder) ([]byte, error) {
 		order.PutUint32(b, uint32(n))
 		return b, nil
 	case 5, 6, 7, 8:
-		if n > math.MaxUint64 {
-			return nil, lengthErr
-		}
 		b := make([]byte, 8)
 		order.PutUint64(b, n)
 		return b, nil
@@ -80,7 +77,7 @@ func Bin2UInt16(buf []byte, order binary.ByteOrder) uint16 {
 
 // UInt2Bcd2Bytes uint16转两字节bcd码 isLittleEndian = true:小端, =false:大端
 func UInt2Bcd2Bytes(n int64, isLittleEndian bool) []byte {
-	if n < 0 || n > math.MaxInt64 {
+	if n < 0 {
 		return nil
 	}
 	var b []byte

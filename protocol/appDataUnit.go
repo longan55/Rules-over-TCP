@@ -10,43 +10,55 @@ import (
 )
 
 //通过框架配置协议，框架自动解析和封装，无需自己开发。
+//1. 定义一个结构体(Data Package Handler)包含协议组成元素信息
+//2. 每次解析和组装都要使用这个结构体(DPH)
+//3. DPH需要一个解析数据获取Data域的方法，返回Data域的字节切片
+//4. 定义功能码接口(Function),解析数据域和组装数据域
 
 // AppDataUnit 应用数据单元接口
-type AppDataUnit interface {
-	Marshal(AppDataUnit) []byte
-	UnMarshal([]byte) (AppDataUnit, error)
+type DataPackageHandler interface {
+	AddFielder(field Fielder)
+	Handle(adu []byte) (Function, error)
 }
 
-func NewAdu() Adu {
-	return Adu{Fields: make([]Fielder, 0, 3)}
+func NewDPH() DPH {
+	return DPH{Fields: make([]Fielder, 0, 3)}
 }
 
-// Adu 应用数据单元 结构体
-type Adu struct {
+var _ DataPackageHandler = (*DPH)(nil)
+
+// dph 应用数据单元 结构体
+type DPH struct {
 	Fields []Fielder
 }
 
-func (adu *Adu) Info() {
-	for _, v := range adu.Fields {
+// AddFielder 用于添加元素
+func (dph *DPH) AddFielder(field Fielder) {
+	dph.Fields = append(dph.Fields, field)
+}
+func (dph *DPH) Handle(adu []byte) (Function, error) {
+	for _, v := range dph.Fields {
+		v.Deal(nil)
+	}
+	return nil, nil
+}
+
+func (dph *DPH) Info() {
+	for _, v := range dph.Fields {
 		of := reflect.TypeOf(v)
 		fmt.Println("类型:", of, " 长度:", v.Length())
 	}
 }
 
-// AddField 用于添加元素
-func (adu *Adu) AddField(field Fielder) {
-	adu.Fields = append(adu.Fields, field)
-}
-
 // Debug 解析数据
-func (adu *Adu) Debug(r io.Reader, source []byte) {
+func (dph *DPH) Debug(r io.Reader, source []byte) {
 	// 起始符 只需要判断是否相等
 	// 数据域长度 要传给数据域元素作为长度
 	// 加密标志 是否对指定元素的值进行加密或解密
 	// 校验码 是否对指定元素进行校验计算
 	offset := 0
 	//遍历所有元素
-	for _, field := range adu.Fields {
+	for _, field := range dph.Fields {
 		//根据元素Field获取对应数据切片
 		data := source[offset : offset+field.Length()]
 		//更新偏移量
