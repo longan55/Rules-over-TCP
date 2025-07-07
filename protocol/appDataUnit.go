@@ -2,45 +2,93 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
 )
 
 //通过框架配置协议，框架自动解析和封装，无需自己开发。
-//1. 定义一个结构体(Data Package Handler)包含协议组成元素信息
+//1. 定义一个结构体(Data Unit Handler)包含协议组成元素信息
 //2. 每次解析和组装都要使用这个结构体(DPH)
 //3. DPH需要一个解析数据获取Data域的方法，返回Data域的字节切片
 //4. 定义功能码接口(Function),解析数据域和组装数据域
 
-// AppDataUnit 应用数据单元接口
-type DataPackageHandler interface {
-	AddFielder(field Fielder)
-	Handle(adu []byte) (Function, error)
+func NewDUHBuilder() DUHBuilder {
+	return DUHBuilder{
+		dph: &DPH{
+			Fields: make([]Fielder, 0, 3),
+		},
+	}
+}
+
+type DUHBuilder struct {
+	dph *DPH
+}
+
+func (dphBuilder *DUHBuilder) AddFielder(field Fielder) *DUHBuilder {
+	dphBuilder.dph.Fields = append(dphBuilder.dph.Fields, field)
+	return dphBuilder
+}
+
+func (dphBuilder *DUHBuilder) Build() DataUnitHandler {
+	//todo 起始码+长度码 的长度
+	dphBuilder.dph.headerLen = 1
+	return dphBuilder.dph
+}
+
+type DataUnitHandler interface {
+	Handle(ctx context.Context, conn net.Conn)
+	Parse(adu []byte) (Function, error)
+	Serialize(f Function) []byte
 }
 
 func NewDPH() DPH {
 	return DPH{Fields: make([]Fielder, 0, 3)}
 }
 
-var _ DataPackageHandler = (*DPH)(nil)
+var _ DataUnitHandler = (*DPH)(nil)
 
 // dph 应用数据单元 结构体
 type DPH struct {
-	Fields []Fielder
+	headerLen int
+	conn      net.Conn
+	Fields    []Fielder
 }
 
-// AddFielder 用于添加元素
-func (dph *DPH) AddFielder(field Fielder) {
-	dph.Fields = append(dph.Fields, field)
+func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
+	dph.conn = conn
+	for {
+		select {
+		case <-ctx.Done():
+			//停止读取
+			return
+		default:
+			for _, field := range dph.Fields {
+				buf := make([]byte, field.Length())
+				n, err := io.ReadFull(dph.conn, buf)
+				if err != nil {
+					fmt.Println("读取数据失败:", err)
+					return
+				}
+				fmt.Println("读取数据:", string(buf[:n]))
+			}
+		}
+	}
 }
-func (dph *DPH) Handle(adu []byte) (Function, error) {
+
+func (dph *DPH) Parse(adu []byte) (Function, error) {
 	for _, v := range dph.Fields {
 		v.Deal(nil)
 	}
 	return nil, nil
+}
+
+func (dph *DPH) Serialize(f Function) []byte {
+	return nil
 }
 
 func (dph *DPH) Info() {
