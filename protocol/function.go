@@ -13,3 +13,8 @@ func (fc FunctionCode) NewFunction() Function {
 	//todo implate
 	return nil
 }
+
+const (
+	FunctionCodeLogin FunctionCode = iota
+	FunctionCodeHeartbeat
+)

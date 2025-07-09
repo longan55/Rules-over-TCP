@@ -33,6 +33,8 @@ func NewDUHBuilder() DUHBuilder {
 //3. 数据域称为消息体元素
 //4. 最后一个元素必须是校验码元素
 
+//注册回调函数,根据功能码,返回对应的功能结构体
+
 type DUHBuilder struct {
 	dph *DPH
 }
@@ -75,7 +77,7 @@ func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
 			//停止读取
 			return
 		default:
-			fulldata := make([]byte, 0, 1024)
+			alldata := make([][]byte, 0, len(dph.Fields))
 			//第一遍遍历fields, 读取一个完整的数据单元
 			for _, field := range dph.Fields {
 				//定义好合适长度的buf,接收该元素数据
@@ -101,7 +103,7 @@ func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
 				}
 				//如果是长度元素,解析长度元素,赋值给数据长度变量
 				if field.Type() == LENGTH {
-					length, err := field.Deal(buf)
+					length, err := field.Deal(alldata)
 					if err != nil {
 						fmt.Println("读取数据长度失败:", err)
 						break
@@ -109,13 +111,15 @@ func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
 					dph.dataLength = length.(int)
 				}
 				//将数据拼接
-				fulldata = append(fulldata, buf...)
+				alldata = append(alldata, buf)
 			}
 			//第二遍遍历fields, 解析数据单元
 			for _, field := range dph.Fields {
-				field.Deal(fulldata)
+				if field.Type() != START {
+					field.Deal(alldata)
+				}
 			}
-			fmt.Println("读取数据:", string(fulldata))
+			fmt.Println("读取数据:", alldata)
 			//todo回调
 		}
 	}
@@ -149,26 +153,26 @@ func (dph *DPH) Debug(r io.Reader, source []byte) {
 	// 数据域长度 要传给数据域元素作为长度
 	// 加密标志 是否对指定元素的值进行加密或解密
 	// 校验码 是否对指定元素进行校验计算
-	offset := 0
-	//遍历所有元素
-	for _, field := range dph.Fields {
-		//根据元素Field获取对应数据切片
-		data := source[offset : offset+field.Length()]
-		//更新偏移量
-		offset += field.Length()
-		//debug打印元素
-		if field.GetScale() == 0 {
-			fmt.Printf("[%s] = %0d", field.GetName(), data)
-		} else {
-			fmt.Printf("[%s] = %0x", field.GetName(), data)
-		}
+	// offset := 0
+	// //遍历所有元素
+	// for _, field := range dph.Fields {
+	// 	//根据元素Field获取对应数据切片
+	// 	data := source[offset : offset+field.Length()]
+	// 	//更新偏移量
+	// 	offset += field.Length()
+	// 	//debug打印元素
+	// 	if field.GetScale() == 0 {
+	// 		fmt.Printf("[%s] = %0d", field.GetName(), data)
+	// 	} else {
+	// 		fmt.Printf("[%s] = %0x", field.GetName(), data)
+	// 	}
 
-		//处理方法
-		_, err := field.Deal(data)
-		if err != nil { //log.Println("数据解析出错! [error]:", err)
-			fmt.Printf("数据解析出错! [error]: %v\n", err)
-		}
-	}
+	// 	//处理方法
+	// 	_, err := field.Deal(data)
+	// 	if err != nil { //log.Println("数据解析出错! [error]:", err)
+	// 		fmt.Printf("数据解析出错! [error]: %v\n", err)
+	// 	}
+	// }
 }
 
 // Fielder 元素接口
@@ -195,7 +199,7 @@ type Fielder interface {
 	// GetRange 获取范围
 	GetRange() (start, end uint8)
 	// Deal 解析元素
-	Deal([]byte) (any, error)
+	Deal([][]byte) (any, error)
 }
 
 type FieldType byte
@@ -227,7 +231,7 @@ type Field struct {
 	next     *Fielder
 	start    uint8
 	end      uint8
-	DealFunc func(field Fielder, data []byte) (any, error)
+	DealFunc func(field Fielder, data [][]byte) (any, error)
 }
 
 func (f *Field) GetName() string {
@@ -276,7 +280,7 @@ func (f *Field) SetRange(start, end uint8) {
 	f.end = end
 }
 
-func (f *Field) Deal(data []byte) (any, error) {
+func (f *Field) Deal(data [][]byte) (any, error) {
 	return f.DealFunc(f, data)
 }
 
@@ -287,15 +291,15 @@ func NewStarter(start []byte) Fielder {
 		defaultV: start,
 		len:      len(start),
 	}
-	field.DealFunc = func(field Fielder, data []byte) (any, error) {
+	field.DealFunc = func(field Fielder, data [][]byte) (any, error) {
 		if data == nil {
 			return nil, errors.New("数据为空")
 		}
 		if len(data) < field.Length() {
 			return nil, errors.New("数据长度小于起始符长度")
 		}
-		if bytes.Equal(data[:field.Length()], field.GetDefault()) {
-			return nil, fmt.Errorf("起始符错误Need:%s,But:%s", string(field.GetDefault()), string(data[:field.Length()]))
+		if bytes.Equal(data[0][:field.Length()], field.GetDefault()) {
+			return nil, fmt.Errorf("起始符错误Need:%s,But:%s", string(field.GetDefault()), string(data[0][:field.Length()]))
 		}
 		return nil, nil
 	}
