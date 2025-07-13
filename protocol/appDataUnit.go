@@ -93,7 +93,7 @@ func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
 					fmt.Println("读取数据失败:", err)
 					return
 				}
-				//检查起始符,如果对就没必要按正确元素顺序处理了
+				//检查起始符,如果不对就没必要按正确元素顺序处理了
 				if field.Type() == START {
 					//如果是起始符,校验起始符
 					if bytes.Equal(buf, field.GetDefault()) {
@@ -115,8 +115,13 @@ func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
 			}
 			//第二遍遍历fields, 解析数据单元
 			for _, field := range dph.Fields {
-				if field.Type() != START {
-					field.Deal(alldata)
+				if field.Type() == START {
+					continue
+				}
+				_, err := field.Deal(alldata)
+				if err != nil {
+					fmt.Println("数据解析失败:", err)
+					break
 				}
 			}
 			fmt.Println("读取数据:", alldata)
@@ -177,6 +182,8 @@ func (dph *DPH) Debug(r io.Reader, source []byte) {
 
 // Fielder 元素接口
 type Fielder interface {
+	GetIndex() int
+	SetIndex(index int)
 	//获取元素名称
 	GetName() string
 	SetName(name string)
@@ -193,7 +200,9 @@ type Fielder interface {
 	SetScale(uint8)
 	//获取进制
 	GetScale() uint8
-
+	//获取大小端
+	GetOrder() binary.ByteOrder
+	SetOrder(order binary.ByteOrder)
 	// SetRange 设置范围
 	SetRange(start, end uint8)
 	// GetRange 获取范围
@@ -221,17 +230,28 @@ var _ Fielder = (*Field)(nil)
 
 // Field 基础元素结构体
 type Field struct {
-	Typ  FieldType
-	name string //消息帧 元素名字
-	//FType        fieldType      //消息帧 字段类型
-	scale    uint8            // 1十六进制，0十进制
-	len      int              //消息帧 元素本身长度
-	defaultV []byte           //默认值
-	order    binary.ByteOrder //大小端
-	next     *Fielder
-	start    uint8
-	end      uint8
-	DealFunc func(field Fielder, data [][]byte) (any, error)
+	//元数据: 存储该元素的元数据(用于描述说明)
+	index    int                                             //说明该元素的索引
+	Typ      FieldType                                       //元素类型
+	name     string                                          //元素名字
+	scale    uint8                                           // 1十六进制，0十进制
+	len      int                                             //元素本身长度
+	defaultV []byte                                          //默认值
+	order    binary.ByteOrder                                //大小端
+	start    uint8                                           //开始索引: 该元素影响的元素区域的第一个元素索引
+	end      uint8                                           //结束索引: 该元素影响的元素区域的最后一个元素索引
+	DealFunc func(field Fielder, data [][]byte) (any, error) //处理函数
+	//临时数据: 存储当前adu的数据
+	realData   []byte
+	parsedData any
+}
+
+func (f *Field) GetIndex() int {
+	return f.index
+}
+
+func (f *Field) SetIndex(index int) {
+	f.index = index
 }
 
 func (f *Field) GetName() string {
@@ -272,6 +292,14 @@ func (f *Field) GetScale() uint8 {
 	return f.scale
 }
 
+func (f *Field) GetOrder() binary.ByteOrder {
+	return f.order
+}
+
+func (f *Field) SetOrder(order binary.ByteOrder) {
+	f.order = order
+}
+
 func (f *Field) GetRange() (start, end uint8) {
 	return f.start, f.end
 }
@@ -306,55 +334,85 @@ func NewStarter(start []byte) Fielder {
 	return field
 }
 
-type Starter struct {
-	Field
-}
-
-func (start Starter) Deal(data []byte) error {
-	if len(data) != int(start.len) {
-		return errors.New("起始长度不对")
+func NewDataLen(length int) Fielder {
+	field := &Field{
+		name:     "数据域长度",
+		defaultV: nil,
+		len:      length,
 	}
-	for i, v := range start.defaultV {
-		if v != data[i] {
-			fmt.Printf("起始：%# 02x，预期：%# 02x\n", data, start.defaultV)
-			return errors.New("起始值错误")
+	field.DealFunc = func(field Fielder, data [][]byte) (any, error) {
+		if data == nil {
+			return nil, errors.New("数据为空")
 		}
+		if len(data) < field.Length() {
+			return nil, errors.New("数据长度小于数据域长度字段长度")
+		}
+		lenData := data[field.GetIndex()]
+		u64, err := BIN2Uint64(lenData, field.GetOrder())
+		if err != nil {
+			return nil, err
+		}
+		return u64, nil
 	}
-	fmt.Printf("[起始值]:% 02X\n", data)
-	return nil
+	return field
 }
 
-type DataLen struct {
-	Field
+func NewFuncCode() Fielder {
+	field := &Field{
+		name:     "功能码",
+		defaultV: nil,
+		len:      1,
+	}
+	field.DealFunc = func(field Fielder, data [][]byte) (any, error) {
+		if data == nil {
+			return nil, errors.New("数据为空")
+		}
+		if len(data) < field.Length() {
+			return nil, errors.New("数据长度小于功能码字段长度")
+		}
+		return data[field.GetIndex()], nil
+	}
+	return field
 }
 
-func (d DataLen) Deal(data []byte) error {
-	if len(data) != int(d.len) {
-		return errors.New("数据域长度字段本省身长度不对")
-	}
-	var l = make([]byte, d.len)
-	data = data[:d.len]
-	buffer := bytes.NewBuffer(data)
-	err := binary.Read(buffer, d.order, l)
-	if err != nil {
-		fmt.Println("binary read error", err)
-		return err
-	}
-	bin2Uint64, err := BIN2Uint64(data, d.order)
-	if err != nil {
-		fmt.Println("b2i error: ", err)
-		return err
-	}
-	fmt.Printf("[数据长度]:%d字节\n", bin2Uint64)
-	return nil
-}
+// type Starter struct {
+// 	Field
+// }
 
-type Datar struct {
-	Field
-}
+// func (start Starter) Deal(data []byte) error {
+// 	if len(data) != int(start.len) {
+// 		return errors.New("起始长度不对")
+// 	}
+// 	for i, v := range start.defaultV {
+// 		if v != data[i] {
+// 			fmt.Printf("起始：%# 02x，预期：%# 02x\n", data, start.defaultV)
+// 			return errors.New("起始值错误")
+// 		}
+// 	}
+// 	fmt.Printf("[起始值]:% 02X\n", data)
+// 	return nil
+// }
+// type DataLen struct {
+// 	Field
+// }
 
-func (datar Datar) Deal(data []byte) error {
-	//解析再打印
-	fmt.Printf("[数据]:% 0X\n", data)
-	return nil
-}
+// func (d DataLen) Deal(data []byte) error {
+// 	if len(data) != int(d.len) {
+// 		return errors.New("数据域长度字段本省身长度不对")
+// 	}
+// 	var l = make([]byte, d.len)
+// 	data = data[:d.len]
+// 	buffer := bytes.NewBuffer(data)
+// 	err := binary.Read(buffer, d.order, l)
+// 	if err != nil {
+// 		fmt.Println("binary read error", err)
+// 		return err
+// 	}
+// 	bin2Uint64, err := BIN2Uint64(data, d.order)
+// 	if err != nil {
+// 		fmt.Println("b2i error: ", err)
+// 		return err
+// 	}
+// 	fmt.Printf("[数据长度]:%d字节\n", bin2Uint64)
+// 	return nil
+// }
