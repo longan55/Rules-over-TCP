@@ -65,8 +65,10 @@ var _ DataUnitHandler = (*DPH)(nil)
 // dph 应用数据单元 结构体
 type DPH struct {
 	dataLength int
-	conn       net.Conn
-	Fields     []Fielder
+	//加密标志
+	encryptionFlag byte
+	conn           net.Conn
+	Fields         []Fielder
 }
 
 func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
@@ -93,32 +95,34 @@ func (dph *DPH) Handle(ctx context.Context, conn net.Conn) {
 					fmt.Println("读取数据失败:", err)
 					return
 				}
-				//检查起始符,如果不对就没必要按正确元素顺序处理了
-				if field.Type() == START {
-					//如果是起始符,校验起始符
-					if bytes.Equal(buf, field.GetDefault()) {
-						fmt.Println("起始符校验失败")
-						break
-					}
-				}
-				//如果是长度元素,解析长度元素,赋值给数据长度变量
-				if field.Type() == LENGTH {
-					length, err := field.Deal(alldata)
+
+				//is start with correct code?
+				startFlag := true
+
+				typ, a, err := field.Deal(alldata)
+				switch typ {
+				case START:
 					if err != nil {
-						fmt.Println("读取数据长度失败:", err)
-						break
+						fmt.Println("起始符校验失败: ", err)
+						startFlag = false
 					}
-					dph.dataLength = length.(int)
+				case LENGTH:
+					dph.dataLength = a.(int)
+				case ENCRYPTION:
+					dph.encryptionFlag = a.(byte)
+				}
+				if !startFlag {
+					break
 				}
 				//将数据拼接
 				alldata = append(alldata, buf)
 			}
-			//第二遍遍历fields, 解析数据单元
+			//第二次遍历fields, 解析数据单元
 			for _, field := range dph.Fields {
 				if field.Type() == START {
 					continue
 				}
-				_, err := field.Deal(alldata)
+				_, _, err := field.Deal(alldata)
 				if err != nil {
 					fmt.Println("数据解析失败:", err)
 					break
@@ -208,7 +212,7 @@ type Fielder interface {
 	// GetRange 获取范围
 	GetRange() (start, end uint8)
 	// Deal 解析元素
-	Deal([][]byte) (any, error)
+	Deal([][]byte) (FieldType, any, error)
 }
 
 type FieldType byte
@@ -218,6 +222,8 @@ const (
 	START FieldType = iota
 	// 数据域长度
 	LENGTH
+	// 加密标志
+	ENCRYPTION
 	// 功能码
 	FUNCTION
 	// 数据域
@@ -231,16 +237,16 @@ var _ Fielder = (*Field)(nil)
 // Field 基础元素结构体
 type Field struct {
 	//元数据: 存储该元素的元数据(用于描述说明)
-	index    int                                             //说明该元素的索引
-	Typ      FieldType                                       //元素类型
-	name     string                                          //元素名字
-	scale    uint8                                           // 1十六进制，0十进制
-	len      int                                             //元素本身长度
-	defaultV []byte                                          //默认值
-	order    binary.ByteOrder                                //大小端
-	start    uint8                                           //开始索引: 该元素影响的元素区域的第一个元素索引
-	end      uint8                                           //结束索引: 该元素影响的元素区域的最后一个元素索引
-	DealFunc func(field Fielder, data [][]byte) (any, error) //处理函数
+	index    int                                                        //说明该元素的索引
+	Typ      FieldType                                                  //元素类型
+	name     string                                                     //元素名字
+	scale    uint8                                                      // 1十六进制，0十进制
+	len      int                                                        //元素本身长度
+	defaultV []byte                                                     //默认值
+	order    binary.ByteOrder                                           //大小端
+	start    uint8                                                      //开始索引: 该元素影响的元素区域的第一个元素索引
+	end      uint8                                                      //结束索引: 该元素影响的元素区域的最后一个元素索引
+	DealFunc func(field Fielder, data [][]byte) (FieldType, any, error) //处理函数
 	//临时数据: 存储当前adu的数据
 	realData   []byte
 	parsedData any
@@ -308,28 +314,29 @@ func (f *Field) SetRange(start, end uint8) {
 	f.end = end
 }
 
-func (f *Field) Deal(data [][]byte) (any, error) {
+func (f *Field) Deal(data [][]byte) (FieldType, any, error) {
 	return f.DealFunc(f, data)
 }
 
 // 起始符
 func NewStarter(start []byte) Fielder {
 	field := &Field{
+		Typ:      START,
 		name:     "起始符",
 		defaultV: start,
 		len:      len(start),
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (any, error) {
+	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
 		if data == nil {
-			return nil, errors.New("数据为空")
+			return field.Type(), nil, errors.New("数据为空")
 		}
 		if len(data) < field.Length() {
-			return nil, errors.New("数据长度小于起始符长度")
+			return field.Type(), nil, errors.New("数据长度小于起始符长度")
 		}
 		if bytes.Equal(data[0][:field.Length()], field.GetDefault()) {
-			return nil, fmt.Errorf("起始符错误Need:%s,But:%s", string(field.GetDefault()), string(data[0][:field.Length()]))
+			return field.Type(), nil, fmt.Errorf("起始符错误Need:%s,But:%s", string(field.GetDefault()), string(data[0][:field.Length()]))
 		}
-		return nil, nil
+		return field.Type(), nil, nil
 	}
 	return field
 }
@@ -340,19 +347,43 @@ func NewDataLen(length int) Fielder {
 		defaultV: nil,
 		len:      length,
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (any, error) {
+	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
 		if data == nil {
-			return nil, errors.New("数据为空")
+			return field.Type(), nil, errors.New("数据为空")
 		}
 		if len(data) < field.Length() {
-			return nil, errors.New("数据长度小于数据域长度字段长度")
+			return field.Type(), nil, errors.New("数据长度小于数据域长度字段长度")
 		}
 		lenData := data[field.GetIndex()]
 		u64, err := BIN2Uint64(lenData, field.GetOrder())
 		if err != nil {
-			return nil, err
+			return field.Type(), nil, err
 		}
-		return u64, nil
+		return field.Type(), u64, nil
+	}
+	return field
+}
+
+func NewCyptoFlag() Fielder {
+	field := &Field{
+		name:     "加密标志",
+		defaultV: []byte{0x01},
+		len:      1,
+	}
+	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+		if data == nil {
+			return field.Type(), nil, errors.New("数据为空")
+		}
+		flagdata := data[field.GetIndex()]
+		u64, err := BIN2Uint64(flagdata, field.GetOrder())
+		if err != nil {
+			return field.Type(), nil, err
+		}
+		//未加密
+		if u64 != 0x01 {
+			return field.Type(), nil, nil
+		}
+		return field.Type(), u64, nil
 	}
 	return field
 }
@@ -363,14 +394,14 @@ func NewFuncCode() Fielder {
 		defaultV: nil,
 		len:      1,
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (any, error) {
+	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
 		if data == nil {
-			return nil, errors.New("数据为空")
+			return field.Type(), nil, errors.New("数据为空")
 		}
 		if len(data) < field.Length() {
-			return nil, errors.New("数据长度小于功能码字段长度")
+			return field.Type(), nil, errors.New("数据长度小于功能码字段长度")
 		}
-		return data[field.GetIndex()], nil
+		return field.Type(), data[field.GetIndex()], nil
 	}
 	return field
 }
