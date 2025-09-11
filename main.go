@@ -15,7 +15,7 @@ func main() {
 	//原始数据
 	var sourceData = []byte{0x68, 0x01, 0x97}
 	//处理器构建器
-	builder := protocol.NewDUHBuilder()
+	builder := protocol.NewBuilder()
 	//构建处理器
 	builder.AddFielder(protocol.NewStarter([]byte{0x68})).
 		AddFielder(protocol.NewDataLen(1))
