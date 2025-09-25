@@ -50,29 +50,36 @@ func (duBuilder *Builder) Build() MainHandler {
 }
 
 type MainHandler interface {
+	AddFunction(fc FunctionCode, f Function)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length int)
 	Parse(adu []byte) (Function, error)
 	Serialize(f Function) []byte
 }
 
-// func NewDPH() DPH {
-// 	return DPH{Fields: make([]Fielder, 0, 3)}
-// }
-
 var _ MainHandler = (*DataHandler)(nil)
 
 // dph 应用数据单元 结构体
 type DataHandler struct {
 	//当前数据单元的 数据域长度
-	dataLength int
+	dataLength   int
+	functionCode FunctionCode
 	//加密标志
 	encryptionFlag byte
 	conn           net.Conn
 	//存储协议元素信息
-	Fields []Fielder
+	Fields  []Fielder
+	handler map[FunctionCode]Function
 }
 
+func (dph *DataHandler) AddFunction(fc FunctionCode, f Function) {
+	if dph.handler == nil {
+		dph.handler = make(map[FunctionCode]Function)
+	}
+	dph.handler[fc] = f
+}
+
+// 字段顺序已有---》新增处理顺序
 func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 	dph.conn = conn
 	for {
@@ -124,11 +131,27 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 				if field.Type() == START {
 					continue
 				}
-				_, _, err := field.Deal(alldata)
+				typ, a, err := field.Deal(alldata)
 				if err != nil {
 					fmt.Println("数据解析失败:", err)
 					break
 				}
+				if typ == FUNCTION {
+					dph.functionCode = a.(FunctionCode)
+				}
+				f := dph.handler[dph.functionCode]
+				if f == nil {
+					fmt.Println("未注册功能码:", dph.functionCode)
+					break
+				}
+				//解析数据域
+				data := alldata[field.GetIndex()]
+				params, err := f.Parse(data)
+				if err != nil {
+					fmt.Println("数据解析失败:", err)
+					break
+				}
+				fmt.Println("解析数据:", params)
 			}
 			fmt.Println("读取数据:", alldata)
 			//todo回调
@@ -333,13 +356,13 @@ func NewCyptoFlag() Fielder {
 		flagdata := data[field.GetIndex()]
 		u64, err := BIN2Uint64(flagdata, field.GetOrder())
 		if err != nil {
-			return field.Type(), nil, err
+			return field.Type(), false, err
 		}
 		//未加密
 		if u64 != 0x01 {
-			return field.Type(), nil, nil
+			return field.Type(), false, nil
 		}
-		return field.Type(), u64, nil
+		return field.Type(), true, nil
 	}
 	return field
 }

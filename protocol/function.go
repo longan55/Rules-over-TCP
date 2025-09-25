@@ -4,8 +4,19 @@ import "sync"
 
 //功能结构体实现这个接口
 type Function interface {
-	Parse(data []byte) error
-	Serialize() ([]byte, error)
+	Parse(data []byte) (map[string]any, error)
+	Serialize(map[string]any) ([]byte, error)
+}
+
+type FuctionTest struct {
+}
+
+func (f *FuctionTest) Parse(data []byte) (map[string]any, error) {
+	return map[string]any{"test": data[:]}, nil
+}
+
+func (f *FuctionTest) Serialize(data map[string]any) ([]byte, error) {
+	return []byte{data["test"].(byte)}, nil
 }
 
 // 功能码,长度应该更加广泛,但暂时使用1字节

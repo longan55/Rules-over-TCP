@@ -13,29 +13,15 @@ import "github.com/longan55/proto/protocol"
 
 func main() {
 	//原始数据
-	var sourceData = []byte{0x68, 0x01, 0x97}
+	var sourceData = []byte{0x68, 0x01, 0x01, 0x97}
 	//处理器构建器
 	builder := protocol.NewBuilder()
 	//构建处理器
 	builder.AddFielder(protocol.NewStarter([]byte{0x68})).
 		AddFielder(protocol.NewDataLen(1))
 	dataHander := builder.Build()
+	//添加功能
+	dataHander.AddFunction(protocol.FunctionCode(0x01), &protocol.FuctionTest{})
 	//解析
 	dataHander.Parse(sourceData)
 }
-
-// func main() {
-// 	var data = []byte{0x68, 0x01, 0x97}
-// 	builder := protocol.NewProtoBuilder()
-// 	builder.SetStart(1, 0x68, binary.BigEndian).
-// 		SetDataLength(1, binary.LittleEndian).
-// 		SetData(1, binary.LittleEndian)
-// 	//SetVerify(2, binary.LittleEndian, nil)
-// 	proto := builder.Build()
-// 	m, err := proto.UnWrap(data)
-// 	if err != nil {
-// 		fmt.Printf("unwrap error:%v\n", err)
-// 		return
-// 	}
-// 	fmt.Printf("result:%v\n", m)
-// }
