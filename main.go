@@ -17,13 +17,18 @@ import (
 
 func main() {
 	//原始数据
-	var sourceData = [][]byte{{0x68}, {0x01}, {0x01}, {0x97}}
+	var sourceData = [][]byte{{0x68}, {0x01}, {0x00}, {0x01}, {0x97}}
 	//处理器构建器
 	builder := protocol.NewBuilder()
+	//添加加密配置
+	cryptConfig := protocol.NewCryptConfig()
+	cryptConfig.AddCrypt(0, protocol.CryptNone)
 	//构建处理器
 	builder.AddFielder(protocol.NewStarter([]byte{0x68})).
 		AddFielder(protocol.NewDataLen(1)).
-		AddFielder(protocol.NewFuncCode())
+		AddFielder(protocol.NewCyptoFlag()).
+		AddFielder(protocol.NewFuncCode()).
+		AddFielder(protocol.NewDataZone())
 	dataHander := builder.Build()
 	//添加功能
 	dataHander.AddFunction(protocol.FunctionCode(0x01), &protocol.FuctionTest{})

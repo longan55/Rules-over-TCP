@@ -44,6 +44,11 @@ func (duBuilder *Builder) AddFielder(field Fielder) *Builder {
 	return duBuilder
 }
 
+func (duBuilder *Builder) AddCryptConfig(cryptConfig *CryptConfig) *Builder {
+	duBuilder.du.cryptLib = cryptConfig.Config()
+	return duBuilder
+}
+
 func (duBuilder *Builder) Build() MainHandler {
 	//todo 起始码+长度码 的长度
 	for index, field := range duBuilder.du.Fields {
@@ -69,12 +74,14 @@ type DataHandler struct {
 	dataLength   int
 	functionCode FunctionCode
 	//加密标志
-	encryptionFlag byte
-	conn           net.Conn
+	encryptionFlag int
+	//TODO: 加密标志，设置加密算法库。
+	cryptLib map[int]CryptFunc
+
+	conn net.Conn
 	//存储协议元素信息
 	Fields  []Fielder
 	handler map[FunctionCode]Function
-	//TODO: 加密标志，设置加密算法库。
 }
 
 func (dph *DataHandler) AddFunction(fc FunctionCode, f Function) {
@@ -123,7 +130,7 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 				case LENGTH:
 					dph.dataLength = a.(int)
 				case ENCRYPTION:
-					dph.encryptionFlag = a.(byte)
+					dph.encryptionFlag = a.(int)
 				}
 				if !startFlag {
 					break
@@ -180,11 +187,22 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
 			fmt.Println("数据解析失败:", err)
 			break
 		}
-		if typ == LENGTH {
-			dph.dataLength = a.(int)
-		}
-		if typ == FUNCTION {
+		switch typ {
+		case LENGTH:
+			dph.dataLength = int(a.(uint64))
+		case ENCRYPTION:
+			dph.encryptionFlag = a.(int)
+		case FUNCTION:
 			dph.functionCode = a.(FunctionCode)
+		case DATA:
+			data := a.([]byte)
+			var err error
+			data, err = dph.cryptLib[dph.encryptionFlag](data)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Printf("数据域:\t\t\t[%0X]\n", data)
+			dph.handler[dph.functionCode].Parse(data)
 		}
 	}
 	return nil, nil
@@ -340,7 +358,7 @@ func NewStarter(start []byte) Fielder {
 		if !bytes.Equal(data[0][:field.Length()], field.RealValue()) {
 			return field.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", field.RealValue(), data[0][:field.Length()])
 		}
-		fmt.Printf("起始符:\t\t\t[%0X]\n", data[0][:field.Length()])
+		fmt.Printf("起始符:\t\t\t[%#0X]\n", data[0][:field.Length()])
 		return field.Type(), nil, nil
 	}
 	return field
@@ -388,11 +406,7 @@ func NewCyptoFlag() Fielder {
 		if err != nil {
 			return field.Type(), false, err
 		}
-		//未加密
-		if u64 != 0x01 {
-			return field.Type(), false, nil
-		}
-		return field.Type(), true, nil
+		return field.Type(), u64, nil
 	}
 	return field
 }
@@ -412,6 +426,26 @@ func NewFuncCode() Fielder {
 			return field.Type(), nil, errors.New("数据长度小于功能码字段长度")
 		}
 		fmt.Printf("功能码:\t\t\t[%0X]\n", data[field.GetIndex()])
+		fc := FunctionCode(data[field.GetIndex()][0])
+		return field.Type(), fc, nil
+	}
+	return field
+}
+func NewDataZone() Fielder {
+	field := &Field{
+		Typ:      DATA,
+		name:     "数据域",
+		defaultV: nil,
+		len:      1,
+	}
+	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+		if data == nil {
+			return field.Type(), nil, errors.New("数据为空")
+		}
+		if len(data) < field.Length() {
+			return field.Type(), nil, errors.New("数据长度小于数据域字段长度")
+		}
+		fmt.Printf("数据域:\t\t\t[%0X]\n", data[field.GetIndex()])
 		return field.Type(), data[field.GetIndex()], nil
 	}
 	return field
