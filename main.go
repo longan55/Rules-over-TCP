@@ -20,9 +20,12 @@ func main() {
 	var sourceData = [][]byte{{0x68}, {0x01}, {0x00}, {0x01}, {0x97}}
 	//处理器构建器
 	builder := protocol.NewBuilder()
+
 	//添加加密配置
 	cryptConfig := protocol.NewCryptConfig()
 	cryptConfig.AddCrypt(0, protocol.CryptNone)
+	builder.AddCryptConfig(cryptConfig)
+
 	//构建处理器
 	builder.AddFielder(protocol.NewStarter([]byte{0x68})).
 		AddFielder(protocol.NewDataLen(1)).

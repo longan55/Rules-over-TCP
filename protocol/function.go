@@ -42,10 +42,3 @@ func Regidter(fc FunctionCode, f func() Function) {
 
 	functionMap[fc] = f
 }
-
-func getFunc(fc FunctionCode) func() Function {
-	fmux.RLock()
-	defer fmux.RUnlock()
-
-	return functionMap[fc]
-}

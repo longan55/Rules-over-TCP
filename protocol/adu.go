@@ -49,6 +49,11 @@ func (duBuilder *Builder) AddCryptConfig(cryptConfig *CryptConfig) *Builder {
 	return duBuilder
 }
 
+func (duBuilder *Builder) AddFunction(fc FunctionCode, f Function) *Builder {
+	duBuilder.du.AddFunction(fc, f)
+	return duBuilder
+}
+
 func (duBuilder *Builder) Build() MainHandler {
 	//todo 起始码+长度码 的长度
 	for index, field := range duBuilder.du.Fields {
@@ -61,7 +66,7 @@ func (duBuilder *Builder) Build() MainHandler {
 type MainHandler interface {
 	AddFunction(fc FunctionCode, f Function)
 	Handle(ctx context.Context, conn net.Conn)
-	SetDataLength(length int)
+	SetDataLength(length uint64)
 	Parse(adu [][]byte) (Function, error)
 	Serialize(f Function) []byte
 }
@@ -71,12 +76,11 @@ var _ MainHandler = (*DataHandler)(nil)
 // dph 应用数据单元 结构体
 type DataHandler struct {
 	//当前数据单元的 数据域长度
-	dataLength   int
+	dataLength   uint64
 	functionCode FunctionCode
 	//加密标志
-	encryptionFlag int
-	//TODO: 加密标志，设置加密算法库。
-	cryptLib map[int]CryptFunc
+	encryptionFlag uint64
+	cryptLib       map[uint64]CryptFunc
 
 	conn net.Conn
 	//存储协议元素信息
@@ -128,9 +132,9 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 						startFlag = false
 					}
 				case LENGTH:
-					dph.dataLength = a.(int)
+					dph.dataLength = a.(uint64)
 				case ENCRYPTION:
-					dph.encryptionFlag = a.(int)
+					dph.encryptionFlag = a.(uint64)
 				}
 				if !startFlag {
 					break
@@ -148,30 +152,33 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 					fmt.Println("数据解析失败:", err)
 					break
 				}
-				if typ == FUNCTION {
+				switch typ {
+				case LENGTH:
+					dph.dataLength = a.(uint64)
+				case ENCRYPTION:
+					dph.encryptionFlag = a.(uint64)
+				case FUNCTION:
 					dph.functionCode = a.(FunctionCode)
+				case DATA:
+					data := a.([]byte)
+					var err error
+					data, err = dph.cryptLib[dph.encryptionFlag](data)
+					if err != nil {
+						return
+					}
+					parsed, err := dph.handler[dph.functionCode].Parse(data)
+					if err != nil {
+						return
+					}
+					fmt.Printf("解析数据:%v\n", parsed)
 				}
-				f := dph.handler[dph.functionCode]
-				if f == nil {
-					fmt.Println("未注册功能码:", dph.functionCode)
-					break
-				}
-				//解析数据域
-				data := alldata[field.GetIndex()]
-				params, err := f.Parse(data)
-				if err != nil {
-					fmt.Println("数据解析失败:", err)
-					break
-				}
-				fmt.Println("解析数据:", params)
 			}
 			fmt.Println("读取数据:", alldata)
-			//todo回调
 		}
 	}
 }
 
-func (dph *DataHandler) SetDataLength(length int) {
+func (dph *DataHandler) SetDataLength(length uint64) {
 	dph.dataLength = length
 }
 
@@ -182,6 +189,9 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
 		// 	fmt.Println("起始符:", alldata[field.GetIndex()])
 		// 	continue
 		// }
+		if field.Type() == START {
+			continue
+		}
 		typ, a, err := field.Deal(alldata)
 		if err != nil {
 			fmt.Println("数据解析失败:", err)
@@ -189,9 +199,9 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
 		}
 		switch typ {
 		case LENGTH:
-			dph.dataLength = int(a.(uint64))
+			dph.dataLength = a.(uint64)
 		case ENCRYPTION:
-			dph.encryptionFlag = a.(int)
+			dph.encryptionFlag = a.(uint64)
 		case FUNCTION:
 			dph.functionCode = a.(FunctionCode)
 		case DATA:
@@ -201,8 +211,11 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("数据域:\t\t\t[%0X]\n", data)
-			dph.handler[dph.functionCode].Parse(data)
+			parsed, err := dph.handler[dph.functionCode].Parse(data)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Printf("解析数据:%v\n", parsed)
 		}
 	}
 	return nil, nil
@@ -406,6 +419,7 @@ func NewCyptoFlag() Fielder {
 		if err != nil {
 			return field.Type(), false, err
 		}
+		fmt.Printf("加密标志:\t\t[%#0X]\n", data[field.GetIndex()])
 		return field.Type(), u64, nil
 	}
 	return field
@@ -425,7 +439,7 @@ func NewFuncCode() Fielder {
 		if len(data) < field.Length() {
 			return field.Type(), nil, errors.New("数据长度小于功能码字段长度")
 		}
-		fmt.Printf("功能码:\t\t\t[%0X]\n", data[field.GetIndex()])
+		fmt.Printf("功能码:\t\t\t[%#0X]\n", data[field.GetIndex()])
 		fc := FunctionCode(data[field.GetIndex()][0])
 		return field.Type(), fc, nil
 	}
@@ -445,7 +459,7 @@ func NewDataZone() Fielder {
 		if len(data) < field.Length() {
 			return field.Type(), nil, errors.New("数据长度小于数据域字段长度")
 		}
-		fmt.Printf("数据域:\t\t\t[%0X]\n", data[field.GetIndex()])
+		fmt.Printf("数据域:\t\t\t[% #0X]\n", data[field.GetIndex()])
 		return field.Type(), data[field.GetIndex()], nil
 	}
 	return field
