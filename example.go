@@ -26,15 +26,26 @@ func main() {
 	cryptConfig.AddCrypt(0, protocol.CryptNone)
 	builder.AddCryptConfig(cryptConfig)
 
+	//配置处理器，来数据时自动处理
+	handlerConfig := protocol.NewHandlerConfig()
+	handlerConfig.AddHandler(0x01, protocol.HandlerTest)
+	builder.AddHandlerConfig(handlerConfig)
+
+	//TODO:
+	//配置编码器，用于主动发送数据或被处理器调用
+
 	//构建处理器
 	builder.AddFielder(protocol.NewStarter([]byte{0x68})).
 		AddFielder(protocol.NewDataLen(1)).
 		AddFielder(protocol.NewCyptoFlag()).
 		AddFielder(protocol.NewFuncCode()).
 		AddFielder(protocol.NewDataZone())
-	dataHander := builder.Build()
-	//添加功能
-	dataHander.AddFunction(protocol.FunctionCode(0x01), &protocol.FuctionTest{})
+	dataHander, err := builder.Build()
+	if err != nil {
+		fmt.Println("构建处理器失败:", err)
+		return
+	}
+
 	//解析
 	if fun, err := dataHander.Parse(sourceData); err != nil {
 		fmt.Println("解析失败:", err)

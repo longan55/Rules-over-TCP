@@ -49,26 +49,32 @@ func (duBuilder *Builder) AddCryptConfig(cryptConfig *CryptConfig) *Builder {
 	return duBuilder
 }
 
-func (duBuilder *Builder) AddFunction(fc FunctionCode, f Function) *Builder {
-	duBuilder.du.AddFunction(fc, f)
+func (duBuilder *Builder) AddHandler(fc FunctionCode, f Handler) *Builder {
+	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
 
-func (duBuilder *Builder) Build() MainHandler {
+func (duBuilder *Builder) AddHandlerConfig(config *HandlerConfig) *Builder {
+	duBuilder.du.handler = config.handlerMap
+	return duBuilder
+}
+
+func (duBuilder *Builder) Build() (MainHandler, error) {
 	//todo 起始码+长度码 的长度
 	for index, field := range duBuilder.du.Fields {
 		field.SetIndex(index)
 		fmt.Printf("元素名称:%s, 元素类型:%v, 自身长度:%v\n", field.GetName(), field.Type(), field.Length())
 	}
-	return duBuilder.du
+	//TODO: 校验元素是否符合协议规范
+	return duBuilder.du, nil
 }
 
 type MainHandler interface {
-	AddFunction(fc FunctionCode, f Function)
+	AddHandler(fc FunctionCode, f Handler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length uint64)
-	Parse(adu [][]byte) (Function, error)
-	Serialize(f Function) []byte
+	Parse(adu [][]byte) (Handler, error)
+	Serialize(f Handler) []byte
 }
 
 var _ MainHandler = (*DataHandler)(nil)
@@ -85,12 +91,12 @@ type DataHandler struct {
 	conn net.Conn
 	//存储协议元素信息
 	Fields  []Fielder
-	handler map[FunctionCode]Function
+	handler map[FunctionCode]Handler
 }
 
-func (dph *DataHandler) AddFunction(fc FunctionCode, f Function) {
+func (dph *DataHandler) AddHandler(fc FunctionCode, f Handler) {
 	if dph.handler == nil {
-		dph.handler = make(map[FunctionCode]Function)
+		dph.handler = make(map[FunctionCode]Handler)
 	}
 	dph.handler[fc] = f
 }
@@ -166,7 +172,7 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 					if err != nil {
 						return
 					}
-					parsed, err := dph.handler[dph.functionCode].Parse(data)
+					parsed, err := dph.handler[dph.functionCode](data)
 					if err != nil {
 						return
 					}
@@ -182,7 +188,7 @@ func (dph *DataHandler) SetDataLength(length uint64) {
 	dph.dataLength = length
 }
 
-func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
+func (dph *DataHandler) Parse(alldata [][]byte) (Handler, error) {
 	fmt.Println("解析前数据:", alldata)
 	for _, field := range dph.Fields {
 		// if field.Type() == START {
@@ -211,7 +217,7 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
 			if err != nil {
 				return nil, err
 			}
-			parsed, err := dph.handler[dph.functionCode].Parse(data)
+			parsed, err := dph.handler[dph.functionCode](data)
 			if err != nil {
 				return nil, err
 			}
@@ -221,7 +227,7 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Function, error) {
 	return nil, nil
 }
 
-func (dph *DataHandler) Serialize(f Function) []byte {
+func (dph *DataHandler) Serialize(f Handler) []byte {
 	return nil
 }
 
