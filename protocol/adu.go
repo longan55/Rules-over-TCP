@@ -49,13 +49,18 @@ func (duBuilder *Builder) AddCryptConfig(cryptConfig *CryptConfig) *Builder {
 	return duBuilder
 }
 
+// func (duBuilder *Builder) AddParserConfig(config *ParserConfig) *Builder {
+// 	duBuilder.du.parserMap = config.parserMap
+// 	return duBuilder
+// }
+
 func (duBuilder *Builder) AddHandler(fc FunctionCode, f Handler) *Builder {
 	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
 
 func (duBuilder *Builder) AddHandlerConfig(config *HandlerConfig) *Builder {
-	duBuilder.du.handler = config.handlerMap
+	duBuilder.du.handlerMap = config.handlerMap
 	return duBuilder
 }
 
@@ -90,15 +95,16 @@ type DataHandler struct {
 
 	conn net.Conn
 	//存储协议元素信息
-	Fields  []Fielder
-	handler map[FunctionCode]Handler
+	Fields     []Fielder
+	parserMap  map[FunctionCode]Parser
+	handlerMap map[FunctionCode]Handler
 }
 
 func (dph *DataHandler) AddHandler(fc FunctionCode, f Handler) {
-	if dph.handler == nil {
-		dph.handler = make(map[FunctionCode]Handler)
+	if dph.handlerMap == nil {
+		dph.handlerMap = make(map[FunctionCode]Handler)
 	}
-	dph.handler[fc] = f
+	dph.handlerMap[fc] = f
 }
 
 // 字段顺序已有---》新增处理顺序
@@ -172,7 +178,7 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 					if err != nil {
 						return
 					}
-					parsed, err := dph.handler[dph.functionCode](data)
+					parsed, err := dph.handlerMap[dph.functionCode](data)
 					if err != nil {
 						return
 					}
@@ -217,7 +223,7 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Handler, error) {
 			if err != nil {
 				return nil, err
 			}
-			parsed, err := dph.handler[dph.functionCode](data)
+			parsed, err := dph.handlerMap[dph.functionCode](data)
 			if err != nil {
 				return nil, err
 			}

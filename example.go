@@ -16,6 +16,10 @@ import (
 // 2.不同的结构体，同一个接口
 
 func main() {
+	Test()
+}
+
+func TestSrc() {
 	//原始数据
 	var sourceData = [][]byte{{0x68}, {0x01}, {0x00}, {0x01}, {0x97}}
 	//处理器构建器
