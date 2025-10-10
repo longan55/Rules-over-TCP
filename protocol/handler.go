@@ -1,9 +1,6 @@
 package protocol
 
-//功能结构体实现这个接口
-// type Handler interface {
-// 	Hanlde(data []byte) (map[string]any, error)
-// }
+//业务处理函数
 
 func HandlerTest(data []byte) (map[string]any, error) {
 	return map[string]any{"test": data[:]}, nil
