@@ -178,11 +178,10 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 					if err != nil {
 						return
 					}
-					parsed, err := dph.handlerMap[dph.functionCode](data)
+					err = dph.handlerMap[dph.functionCode](data)
 					if err != nil {
 						return
 					}
-					fmt.Printf("解析数据:%v\n", parsed)
 				}
 			}
 			fmt.Println("读取数据:", alldata)
@@ -223,11 +222,10 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Handler, error) {
 			if err != nil {
 				return nil, err
 			}
-			parsed, err := dph.handlerMap[dph.functionCode](data)
+			err = dph.handlerMap[dph.functionCode](data)
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("解析数据:%v\n", parsed)
 		}
 	}
 	return nil, nil

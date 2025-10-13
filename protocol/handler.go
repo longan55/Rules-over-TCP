@@ -2,14 +2,14 @@ package protocol
 
 //业务处理函数
 
-func HandlerTest(data []byte) (map[string]any, error) {
-	return map[string]any{"test": data[:]}, nil
+func HandlerTest(data []byte) error {
+	return nil
 }
 
 // 功能码,长度应该更加广泛,但暂时使用1字节
 type FunctionCode byte
 
-type Handler func(data []byte) (map[string]any, error)
+type Handler func(data []byte) error
 
 type HandlerConfig struct {
 	handlerMap map[FunctionCode]Handler

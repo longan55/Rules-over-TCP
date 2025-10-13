@@ -35,6 +35,7 @@ func BIN2Uint64(bin []byte, order binary.ByteOrder) (uint64, error) {
 // 无符号整形转BIN码
 var lengthErr = errors.New("需要更大的长度存储该数值")
 
+// len: 最长8字节
 func Uint2BIN(n uint64, len uint8, order binary.ByteOrder) ([]byte, error) {
 	switch len {
 	case 1:
@@ -71,9 +72,9 @@ func Uint16ToBin(i uint16, order binary.ByteOrder) []byte {
 	return buf
 }
 
-func Bin2UInt16(buf []byte, order binary.ByteOrder) uint16 {
-	return order.Uint16(buf)
-}
+// func Bin2UInt16(buf []byte, order binary.ByteOrder) uint16 {
+// 	return order.Uint16(buf)
+// }
 
 // UInt2Bcd2Bytes uint16转两字节bcd码 isLittleEndian = true:小端, =false:大端
 func UInt2Bcd2Bytes(n int64, isLittleEndian bool) []byte {
