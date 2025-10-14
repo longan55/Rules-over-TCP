@@ -151,10 +151,12 @@ func Str2Hex(str string) []byte {
 	return b
 }
 
+// Bcd2Str BCD码->数值类型->数值字符串
 func Bcd2Str(b []byte) string {
 	return hex.EncodeToString(b)
 }
 
+// Str2Bcd 数值字符串->数值类型->BCD码
 func Str2Bcd(str string) []byte {
 	b, err := hex.DecodeString(str)
 	if err != nil {
