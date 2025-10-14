@@ -35,6 +35,8 @@ type CodecItem interface {
 	SetLength(length int)
 	// 设置倍数（用于浮点数转换）
 	SetMultiple(multiple float64)
+	// 设置偏移量（用于整数转换）
+	AddOffset(offset int64)
 	// 从字节切片解码值
 	Decode(data []byte) (any, error)
 	// 将Go数据类型编码为字节切片
@@ -57,6 +59,7 @@ type Codec interface {
 type BaseCodecItem struct {
 	Length   int
 	Multiple float64
+	Offset   int64
 	Encoding EncodingType
 	DataType DataType
 	Endian   binary.ByteOrder
@@ -70,6 +73,11 @@ func (b *BaseCodecItem) SetLength(length int) {
 // SetMultiple 设置倍数
 func (b *BaseCodecItem) SetMultiple(multiple float64) {
 	b.Multiple = multiple
+}
+
+// AddOffset 设置偏移量
+func (b *BaseCodecItem) AddOffset(offset int64) {
+	b.Offset = offset
 }
 
 // GetLength 获取数据长度

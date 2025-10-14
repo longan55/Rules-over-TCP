@@ -11,6 +11,16 @@ import (
 	"strings"
 )
 
+//编码方式：BIN、BCD、ASCII、HEX
+//数据类型：INT、FLOAT、STRING、BITMAP
+//对应方式：
+//BIN：直接转换
+//BCD：->INT ->STRING
+//ASCII：每个字节表示一个ASCII码
+//HEX：每个字节表示一个十六进制数
+
+//ENCODE->DATATYPE
+
 // BIN码转无符号整形
 func BIN2Uint64(bin []byte, order binary.ByteOrder) (uint64, error) {
 	len := len(bin)
