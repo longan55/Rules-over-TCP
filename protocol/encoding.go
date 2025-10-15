@@ -21,7 +21,25 @@ import (
 
 //ENCODE->DATATYPE
 
-// BIN码转无符号整形
+//如何解析一个字节序列
+// 1. 字节顺序、字节长度、编码方式
+// 2. 倍率、偏移量、BITMAP
+// 3. 结果数据类型
+
+//字节序：binary.LittleEndian, binary.BigEndian
+//字节长度：1-8
+//倍率：int类型
+//偏移量：int类型
+//BITMAP：[int]any, [string]any
+//结果数据类型：INT、FLOAT、STRING、BITMAP(slice)
+//
+// BCD: 一般用于传输数字字符串，作为数值传输时不会丢失精度。最终解释的类型：整数、小数（需乘以倍率）、字符串
+// BIN：二进制码、最基础的编码方式，直接将字节序列转换为无符号整数。最终解释的类型：整数、小数（需乘以倍率）
+//		需要加工解释：BIN 码 1 版本号乘 10，v1.0 表示 0x0A
+//		解释为：枚举切片（只表示其中一种意义）
+//      解释为：BITMAP（可表示多种意义）
+// ASCII: 每个字节表示一个ASCII码，直接将字节序列转换为字符串。最终解释的类型：字符串、也可以解释为数字字符的字面值数值（不常见）
+
 func BIN2Uint64(bin []byte, order binary.ByteOrder) (uint64, error) {
 	len := len(bin)
 	switch len {
@@ -116,7 +134,7 @@ func UInt2Bcd2Bytes(n int64, isLittleEndian bool) []byte {
 }
 
 func Bcd2Int(b []byte) int {
-	n, _ := strconv.Atoi(fmt.Sprintf("%x", Bin2UInt(b)))
+	n, _ := strconv.Atoi(fmt.Sprintf("%x", Bin2Int(b)))
 	return n
 }
 
@@ -132,7 +150,7 @@ func BCD2Int(b []byte) (n int) {
 
 // Bin2Float64 b:Bin码[]byte, bit:最多保留小数位, 小端
 func Bin2Float64(b []byte, bit int) float64 {
-	f := float64(Bin2UInt(b, binary.LittleEndian)) / math.Pow10(bit)
+	f := float64(Bin2Int(b, binary.LittleEndian)) / math.Pow10(bit)
 	num, _ := strconv.ParseFloat(strconv.FormatFloat(f, 'f', bit, 64), 64)
 	return num
 }
@@ -198,7 +216,7 @@ func Hex2Byte(str string) []byte {
 	return bHex
 }
 
-func Bin2UInt(b []byte, orders ...binary.ByteOrder) int {
+func Bin2Int(b []byte, orders ...binary.ByteOrder) int {
 	var order binary.ByteOrder = binary.LittleEndian
 	if orders != nil {
 		order = orders[0]

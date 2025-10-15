@@ -2,6 +2,8 @@ package protocol
 
 import "errors"
 
+var FakeParser = NewParser()
+
 type Parser interface {
 	Parse(data []byte) (map[string]interface{}, error)
 	AddItem(name string, item CodecItem)
