@@ -19,14 +19,15 @@ const (
 	EncodingHEX   EncodingType = "HEX"
 )
 
-// 数据类型常量
+// 数据类型常量,第一数据类型，没有赋予值含义
 type DataType string
 
 const (
 	DataTypeInt    DataType = "INT"
 	DataTypeFloat  DataType = "FLOAT"
 	DataTypeString DataType = "STRING"
-	DataTypeBit    DataType = "BIT"
+	DataTypeEnum   DataType = "ENUM"   //只取其中一个值
+	DataTypeBit    DataType = "BITMAP" //可取多个值，位映射，每个位对应一个枚举值
 )
 
 // CodecItem 单个编解码项的接口

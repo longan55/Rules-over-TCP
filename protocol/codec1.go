@@ -1,46 +1,31 @@
 package protocol
 
-type Encode interface {
-	Integer(b []byte) (int, error)
-	String(b []byte) (string, error)
+import "encoding/binary"
+
+type CodeItem struct {
+	Order    binary.ByteOrder
+	Encode   EncodingType
+	Datatype DataType
+	Multiple float64
+	Offset   float64
+	Enum     map[any]any
+	bitmap   map[any]any
 }
 
-type BIN struct{}
-
-func (BIN) Integer(b []byte) (int, error) {
-	return 0, nil
+func NewCodecItem(order binary.ByteOrder, encode EncodingType, datatype DataType, multiple, offset float64) *CodeItem {
+	return &CodeItem{
+		Order:    order,
+		Encode:   encode,
+		Datatype: datatype,
+		Multiple: multiple,
+		Offset:   offset,
+	}
 }
 
-func (BIN) String(b []byte) (string, error) {
-	return string(b), nil
+func (c *CodeItem) SetEnum(enum map[any]any) {
+	c.Enum = enum
 }
 
-type BCD struct{}
-
-func (BCD) Integer(b []byte) (int, error) {
-	return 0, nil
-}
-
-func (BCD) String(b []byte) (string, error) {
-	return "", nil
-}
-
-type ASCII struct{}
-
-func (ASCII) Integer(b []byte) (int, error) {
-	return 0, nil
-}
-
-func (ASCII) String(b []byte) (string, error) {
-	return "", nil
-}
-
-type HEX struct{}
-
-func (HEX) Integer(b []byte) (int, error) {
-	return 0, nil
-}
-
-func (HEX) String(b []byte) (string, error) {
-	return "", nil
+func (c *CodeItem) Extract() any {
+	return c.Enum
 }
