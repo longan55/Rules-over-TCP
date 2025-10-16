@@ -138,7 +138,7 @@ func Bcd2Int(b []byte) int {
 	return n
 }
 
-func BCD2Int(b []byte) (n int) {
+func BCD2Int(b []byte) (n int, err error) {
 	l := len(b)
 	for i := 1; i <= l; i++ {
 		temp := b[l-i]
@@ -149,10 +149,13 @@ func BCD2Int(b []byte) (n int) {
 }
 
 // Bin2Float64 b:Bin码[]byte, bit:最多保留小数位, 小端
-func Bin2Float64(b []byte, bit int) float64 {
-	f := float64(Bin2Int(b, binary.LittleEndian)) / math.Pow10(bit)
-	num, _ := strconv.ParseFloat(strconv.FormatFloat(f, 'f', bit, 64), 64)
-	return num
+func Bin2Float64(order binary.ByteOrder, b []byte, bit int) (float64, error) {
+	f := float64(Bin2Int(b, order)) / math.Pow10(bit)
+	num, err := strconv.ParseFloat(strconv.FormatFloat(f, 'f', bit, 64), 64)
+	if err != nil {
+		return 0, err
+	}
+	return num, nil
 }
 
 // Float64ToBin  f:浮点数, byteLength:字节数, bit:小数点位数

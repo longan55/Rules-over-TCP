@@ -118,7 +118,10 @@ func (i *IntCodecItem) Decode(data []byte) (any, error) {
 		}
 		return int64(val), nil
 	case EncodingBCD:
-		val := BCD2Int(data[:i.Length])
+		val, err := BCD2Int(data[:i.Length])
+		if err != nil {
+			return nil, err
+		}
 		return int64(val), nil
 	case EncodingASCII:
 		valStr := string(data[:i.Length])
@@ -218,7 +221,10 @@ func (f *FloatCodecItem) Decode(data []byte) (interface{}, error) {
 		}
 		return float64(val) * f.Multiple / math.Pow10(f.DecimalPlaces), nil
 	case EncodingBCD:
-		val := BCD2Int(data[:f.Length])
+		val, err := BCD2Int(data[:f.Length])
+		if err != nil {
+			return nil, err
+		}
 		return float64(val) * f.Multiple / math.Pow10(f.DecimalPlaces), nil
 	case EncodingASCII:
 		valStr := string(data[:f.Length])
