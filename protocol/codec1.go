@@ -32,6 +32,7 @@ func (bin *EncodeBIN) SetByteLength(byteLength int) *EncodeBIN {
 }
 
 func (bin *EncodeBIN) encode(data []byte, value any) error {
+	*value.(*int) = Bin2Int(data, bin.order)
 	return nil
 }
 
@@ -45,8 +46,9 @@ func (bin *EncodeBIN) Integer() *DataTypeInteger {
 
 func (bin *EncodeBIN) Float1() *DataTypeFloat1 {
 	return &DataTypeFloat1{
-		order: bin.order,
-		mul:   1,
+		encoder: bin,
+		order:   bin.order,
+		mul:     1,
 	}
 }
 
@@ -90,29 +92,27 @@ func (i *DataTypeInteger) SetBitMap(bitmap map[int]any) *DataTypeInteger {
 	return i
 }
 
-func (i *DataTypeInteger) SourceValue() int {
-	i.encoder.encode(nil, &i.srcValue)
+func (i *DataTypeInteger) SourceValue(data []byte) int {
+	i.encoder.encode(data, &i.srcValue)
 	if i.mflag {
-		i.offset = i.offset * i.mul
 		return i.srcValue*int(i.mul) + int(i.offset)
 	} else if i.oflag {
-		i.offset = i.offset + i.offset
 		return (i.srcValue + int(i.offset)) * int(i.mul)
 	} else {
 		return i.srcValue
 	}
 }
 
-func (i *DataTypeInteger) ExplainedValue() any {
+func (i *DataTypeInteger) ExplainedValue(data []byte) any {
 	if i.enum == nil && i.bitmap == nil {
-		return i.SourceValue()
+		return i.SourceValue(data)
 	}
 	if i.enum != nil {
-		return i.enum[i.SourceValue()]
+		return i.enum[i.SourceValue(data)]
 	} else {
 		//i.bitmap != nil
 		result := make([]string, 0, len(i.bitmap))
-		source := i.SourceValue()
+		source := i.SourceValue(data)
 		for k, v := range i.bitmap {
 			if (source & (1 << k)) != 0 {
 				result = append(result, v.(string))
@@ -123,6 +123,7 @@ func (i *DataTypeInteger) ExplainedValue() any {
 }
 
 type DataTypeFloat1 struct {
+	encoder  Encoder
 	order    binary.ByteOrder
 	mflag    bool
 	oflag    bool
@@ -131,22 +132,24 @@ type DataTypeFloat1 struct {
 	srcValue float64
 }
 
-func (f *DataTypeFloat1) Multiple(mul float64) {
+func (f *DataTypeFloat1) Multiple(mul float64) *DataTypeFloat1 {
 	f.mul = mul
 	if !f.oflag {
 		f.mflag = true
 	}
+	return f
 }
 
-func (f *DataTypeFloat1) Offset(offset float64) {
+func (f *DataTypeFloat1) Offset(offset float64) *DataTypeFloat1 {
 	f.offset = offset
 	if f.mflag {
 		f.oflag = true
 	}
+	return f
 }
 
-func (f *DataTypeFloat1) SourceValue() float64 {
-	f.srcValue = float64(Bin2Int(nil, f.order))
+func (f *DataTypeFloat1) SourceValue(data []byte) float64 {
+	f.srcValue = float64(Bin2Int(data, f.order))
 	if f.mflag {
 		return f.srcValue*f.mul + f.offset
 	} else if f.oflag {
@@ -156,8 +159,8 @@ func (f *DataTypeFloat1) SourceValue() float64 {
 	}
 }
 
-func (f *DataTypeFloat1) ExplainedValue() float64 {
-	return f.SourceValue()
+func (f *DataTypeFloat1) ExplainedValue(data []byte) float64 {
+	return f.SourceValue(data)
 }
 
 type DataTypeString1 struct{}
@@ -168,75 +171,4 @@ type BCD struct {
 
 type ASCII struct {
 	order binary.ByteOrder
-}
-
-type CodeItem struct {
-	Order    binary.ByteOrder
-	Encode   EncodingType
-	Datatype DataType
-	Multiple float64
-	Offset   float64
-	Enum     map[any]any
-	bitmap   map[any]any
-}
-
-func NewCodecItem(order binary.ByteOrder, encode EncodingType, datatype DataType, multiple, offset float64) *CodeItem {
-	return &CodeItem{
-		Order:    order,
-		Encode:   encode,
-		Datatype: datatype,
-		Multiple: multiple,
-		Offset:   offset,
-	}
-}
-
-func (c *CodeItem) SetEnum(enum map[any]any) {
-	c.Enum = enum
-}
-
-func (c *CodeItem) Extract() any {
-	switch c.Encode {
-	case EncodingBIN:
-		value, err := decode(c.Order, c.Datatype)
-		if err != nil {
-			return nil
-		}
-		return value
-	case EncodingBCD:
-		switch c.Datatype {
-		case DataTypeInt:
-			uint64, err := BCD2Int(nil)
-			if err != nil {
-				return nil
-			}
-			return int64(uint64)
-		default:
-			return nil
-		}
-	case EncodingASCII:
-		return c.Enum
-	default:
-		return nil
-	}
-}
-
-func decode(order binary.ByteOrder, datatype DataType) (any, error) {
-	switch datatype {
-	case DataTypeInt:
-		uint64, err := BIN2Uint64(nil, order)
-		if err != nil {
-			return nil, err
-		}
-		return int64(uint64), nil
-	case DataTypeFloat:
-		float64, err := Bin2Float64(order, nil, 6)
-		if err != nil {
-			return nil, err
-		}
-		return float64, nil
-	case DataTypeString:
-		panic("EncodingType BIN is not support DataTypeString")
-	default:
-		return nil, nil
-	}
 }
