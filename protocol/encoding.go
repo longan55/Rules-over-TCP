@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //编码方式：BIN、BCD、ASCII、HEX
@@ -220,29 +221,87 @@ func Hex2Byte(str string) []byte {
 }
 
 func Bin2Int(b []byte, orders ...binary.ByteOrder) int {
-	var order binary.ByteOrder = binary.LittleEndian
+	var order binary.ByteOrder = binary.BigEndian // 默认使用大端序，与Int2Bin保持一致
 	if orders != nil {
 		order = orders[0]
 	}
 	if len(b) == 3 {
-		b = append([]byte{0}, b...)
+		b = append([]byte{0}, b...) // 3字节特殊处理，扩展为4字节
 	}
 	bytesBuffer := bytes.NewBuffer(b)
 	switch len(b) {
 	case 1:
-		var tmp uint8
-		binary.Read(bytesBuffer, order, &tmp)
+		var tmp int8 // 使用有符号整数类型以正确处理负数
+		err := binary.Read(bytesBuffer, order, &tmp)
+		if err != nil {
+			return 0
+		}
 		return int(tmp)
 	case 2:
-		var tmp uint16
-		binary.Read(bytesBuffer, order, &tmp)
+		var tmp int16
+		err := binary.Read(bytesBuffer, order, &tmp)
+		if err != nil {
+			return 0
+		}
 		return int(tmp)
 	case 4:
-		var tmp uint32
-		binary.Read(bytesBuffer, order, &tmp)
+		var tmp int32
+		err := binary.Read(bytesBuffer, order, &tmp)
+		if err != nil {
+			return 0
+		}
 		return int(tmp)
+	case 8:
+		var tmp int64
+		err := binary.Read(bytesBuffer, order, &tmp)
+		if err != nil {
+			return 0
+		}
+		return int(tmp) // 在32位系统上可能会被截断，但这是int类型的限制
 	default:
-		return 0
+		// 对于不支持的字节长度，尝试作为有符号整数处理
+		// 首先检查第一个字节的最高位是否为1（表示负数）
+		signed := false
+		if len(b) > 0 && b[0]&0x80 != 0 {
+			signed = true
+		}
+		
+		// 如果是有符号负数，使用补码规则处理
+		if signed {
+			// 计算对应正数的补码值
+			complement := make([]byte, len(b))
+			for i := range complement {
+				complement[i] = ^b[i]
+			}
+			// 加1得到原码
+			for i := len(complement) - 1; i >= 0; i-- {
+				complement[i]++
+				if complement[i] != 0 {
+					break // 没有进位，结束
+				}
+			}
+			// 计算补码对应的整数值
+			val := 0
+			for i := 0; i < len(complement); i++ {
+				if order == binary.BigEndian {
+					val = val<<8 | int(complement[i])
+				} else {
+					val = val | int(complement[i])<<(8*i)
+				}
+			}
+			return -val
+		}
+		
+		// 无符号数处理
+		val := 0
+		for i := 0; i < len(b); i++ {
+			if order == binary.BigEndian {
+				val = val<<8 | int(b[i])
+			} else {
+				val = val | int(b[i])<<(8*i)
+			}
+		}
+		return val
 	}
 }
 
@@ -290,4 +349,39 @@ func Int2Bin(n int64, bytesLength byte, order binary.ByteOrder) []byte {
 		return bytesBuffer.Bytes()
 	}
 	return nil
+}
+
+// ParseCP56time2a 解析CP56time2a 为字符串时间  7字节
+func ParseCP56time2a(b []byte) string {
+	second := ((int64(b[1]) << 8) + int64(b[0])) / 1000
+	min := b[2] & 0x3F
+	hour := b[3] & 0x1F
+	day := b[4] & 0x1F
+	month := b[5] & 0xF
+	year := b[6] & 0x7F
+	return fmt.Sprintf("20%d-%02d-%02d %02d:%02d:%02d",
+		year, month, day, hour, min, second)
+}
+
+// EncodeCP56time2a 字符串时间编码为CP56time2a格式
+func EncodeCP56time2a(str string) []byte {
+	var b = []byte{0, 0, 0, 0, 0, 0, 0}
+	parse, err := time.Parse("2006-01-02 15:04:05", str)
+	if err != nil {
+		return b
+	}
+	second := Int2Bin(int64(parse.Second())*1000, 2, binary.LittleEndian)
+	min := byte(parse.Minute())
+	hour := byte(parse.Hour())
+	day := byte(parse.Day())
+	month := byte(parse.Month())
+	year := byte(parse.Year() - 2000)
+	b[0] = second[0]
+	b[1] = second[1]
+	b[2] = min
+	b[3] = hour
+	b[4] = day
+	b[5] = month
+	b[6] = year
+	return b
 }
