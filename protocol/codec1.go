@@ -3,6 +3,8 @@ package protocol
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
+	"math"
 	"strconv"
 )
 
@@ -242,20 +244,48 @@ func (bcdi *BCDInteger) SourceValue(data []byte) int {
 	return source
 }
 
-// type BCDFloat struct {
-// 	encoder Encoder
-// 	order   binary.ByteOrder
-// }
+func (bcd *BCD) Float() *BCDFloat {
+	return &BCDFloat{
+		encoder: bcd,
+	}
+}
 
-// func (bcdf *BCDFloat) SourceValue(data []byte) float64 {
-// 	temp := ""
-// 	bcdf.encoder.encode(data, &temp)
-// 	source, err := strconv.ParseFloat(temp, 64)
-// 	if err != nil {
-// 		return 0
-// 	}
-// 	return source
-// }
+type BCDFloat struct {
+	encoder Decoder
+	decimal int
+}
+
+func (bcdf *BCDFloat) DecimalPlace(decimal int) *BCDFloat {
+	bcdf.decimal = decimal
+	return bcdf
+}
+
+func (bcdf *BCDFloat) SourceValue(data []byte) float64 {
+	temp := ""
+	bcdf.encoder.encode(data, &temp)
+	
+	// 先将字符串转换为浮点数
+	source, err := strconv.ParseFloat(temp, 64)
+	if err != nil {
+		return 0
+	}
+	
+	// 计算除以10的幂次后的值
+	value := source / math.Pow10(bcdf.decimal)
+	
+	// 使用FormatFloat和ParseFloat来精确控制小数位数
+	// 这可以确保结果按照指定的小数位数进行四舍五入，减少浮点数精度误差
+	format := "%." + strconv.Itoa(bcdf.decimal) + "f"
+	formatted := fmt.Sprintf(format, value)
+	
+	// 将格式化后的字符串转回浮点数
+	result, err := strconv.ParseFloat(formatted, 64)
+	if err != nil {
+		return value // 如果格式化失败，返回原始计算值
+	}
+	
+	return result
+}
 
 func (bcd *BCD) String() *BCDString {
 	return &BCDString{

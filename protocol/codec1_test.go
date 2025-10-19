@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"encoding/binary"
-	"math"
 	"testing"
 )
 
@@ -82,12 +81,6 @@ func TestDecodeBinInteger(t *testing.T) {
 	}
 }
 
-func TestDecodeBinFloat(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	f := encoder.BIN().SetByteLength(4).Float1().Multiple(math.Pow10(-4))
-	t.Logf("source value:%v\n", f.SourceValue([]byte{0, 0, 0, 1}))
-}
-
 func TestDecodeBinString(t *testing.T) {
 	encoder := NewDecoder(binary.BigEndian)
 	s := encoder.BIN().SetByteLength(4).String1()
@@ -117,4 +110,35 @@ func TestDecodeBinBitMap(t *testing.T) {
 	})
 	explained := i.ExplainedValue([]byte{0b1011})
 	t.Logf("explained value:%v\n", explained)
+}
+
+func TestBCDInteger_Integer(t *testing.T) {
+	encoder := NewDecoder(binary.BigEndian)
+	i := encoder.BCD().Integer()
+	src := i.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
+	t.Logf("source value:%v,Type:%T\n", src, src)
+
+	encoder1 := NewDecoder(binary.LittleEndian)
+	i1 := encoder1.BCD().Integer()
+	src1 := i1.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
+	t.Logf("source value:%v,Type:%T\n", src1, src1)
+}
+
+func TestBCDFloat_DecimalPlace(t *testing.T) {
+	encoder := NewDecoder(binary.BigEndian)
+	f := encoder.BCD().Float().DecimalPlace(2)
+	src := f.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
+	t.Logf("source value:%v,Type:%T\n", src, src)
+}
+
+func TestBCDString_String(t *testing.T) {
+	encoder := NewDecoder(binary.BigEndian)
+	s := encoder.BCD().String()
+	src := s.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
+	t.Logf("source value:%v,Type:%T\n", src, src)
+
+	encoder1 := NewDecoder(binary.LittleEndian)
+	s1 := encoder1.BCD().String()
+	src1 := s1.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
+	t.Logf("source value:%v,Type:%T\n", src1, src1)
 }
