@@ -1,5 +1,7 @@
 package protocol
 
+import "encoding/binary"
+
 //业务处理函数
 
 func HandlerTest(data []byte) error {
@@ -23,4 +25,13 @@ func NewHandlerConfig() *HandlerConfig {
 	return &HandlerConfig{
 		handlerMap: make(map[FunctionCode]Handler, 32),
 	}
+}
+
+type FucntionHandler struct {
+	fc FunctionCode
+	h  Handler
+}
+
+func (fh *FucntionHandler) NewDecoder(order binary.ByteOrder) *DecodeBuilder {
+	return &DecodeBuilder{order: order}
 }

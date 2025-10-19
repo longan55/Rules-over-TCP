@@ -16,7 +16,7 @@ import (
 // 2.不同的结构体，同一个接口
 
 func main() {
-	Test()
+	TestSrc()
 }
 
 func TestSrc() {

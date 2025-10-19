@@ -71,8 +71,8 @@ func TestDecodeBinInteger(t *testing.T) {
 		{"8字节-小端-负数", binary.LittleEndian, []byte{0x10, 0x21, 0x43, 0x65, 0x87, 0xA9, 0xCB, 0xED}, -1311768467463790320}, // 可能会被截断
 	}
 	for no, v := range testmap {
-		encoder := NewDecoder(v.order)
-		i := encoder.BIN().SetByteLength(len(v.input)).Integer()
+		decoder := NewDecoder(v.order)
+		i := decoder.BIN().SetByteLength(len(v.input)).Integer()
 		src := i.SourceValue(v.input)
 		t.Logf("[%s] 测试用例 %d, 输入:%v, 输出值:%v, 期望输出:%v\n", v.name, no+1, v.input, src, v.output)
 		if src != v.output {
@@ -82,15 +82,15 @@ func TestDecodeBinInteger(t *testing.T) {
 }
 
 func TestDecodeBinString(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	s := encoder.BIN().SetByteLength(4).String1()
+	decoder := NewDecoder(binary.BigEndian)
+	s := decoder.BIN().SetByteLength(4).String1()
 	src := s.SourceValue([]byte{0, 0, 0, 1})
 	t.Logf("source value:%v,Type:%T\n", src, src)
 }
 
 func TestDecodeBinEnum(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	i := encoder.BIN().SetByteLength(1).Integer().SetEnum(map[int]any{
+	decoder := NewDecoder(binary.BigEndian)
+	i := decoder.BIN().SetByteLength(1).Integer().SetEnum(map[int]any{
 		0: "A",
 		1: "B",
 		2: "C",
@@ -101,8 +101,8 @@ func TestDecodeBinEnum(t *testing.T) {
 }
 
 func TestDecodeBinBitMap(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	i := encoder.BIN().SetByteLength(1).Integer().SetBitMap(map[int]any{
+	decoder := NewDecoder(binary.BigEndian)
+	i := decoder.BIN().SetByteLength(1).Integer().SetBitMap(map[int]any{
 		0: "A",
 		1: "B",
 		2: "C",
@@ -113,32 +113,32 @@ func TestDecodeBinBitMap(t *testing.T) {
 }
 
 func TestBCDInteger_Integer(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	i := encoder.BCD().Integer()
+	decoder := NewDecoder(binary.BigEndian)
+	i := decoder.BCD().Integer()
 	src := i.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
 	t.Logf("source value:%v,Type:%T\n", src, src)
 
-	encoder1 := NewDecoder(binary.LittleEndian)
-	i1 := encoder1.BCD().Integer()
+	decoder1 := NewDecoder(binary.LittleEndian)
+	i1 := decoder1.BCD().Integer()
 	src1 := i1.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
 	t.Logf("source value:%v,Type:%T\n", src1, src1)
 }
 
 func TestBCDFloat_DecimalPlace(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	f := encoder.BCD().Float().DecimalPlace(2)
+	decoder := NewDecoder(binary.BigEndian)
+	f := decoder.BCD().Float().DecimalPlace(2)
 	src := f.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
 	t.Logf("source value:%v,Type:%T\n", src, src)
 }
 
 func TestBCDString_String(t *testing.T) {
-	encoder := NewDecoder(binary.BigEndian)
-	s := encoder.BCD().String()
+	decoder := NewDecoder(binary.BigEndian)
+	s := decoder.BCD().String()
 	src := s.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
 	t.Logf("source value:%v,Type:%T\n", src, src)
 
-	encoder1 := NewDecoder(binary.LittleEndian)
-	s1 := encoder1.BCD().String()
+	decoder1 := NewDecoder(binary.LittleEndian)
+	s1 := decoder1.BCD().String()
 	src1 := s1.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
 	t.Logf("source value:%v,Type:%T\n", src1, src1)
 }

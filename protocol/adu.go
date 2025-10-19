@@ -24,6 +24,7 @@ func NewBuilder() Builder {
 		du: &DataHandler{
 			Fields: make([]Fielder, 0, 3),
 		},
+		fh: make(map[FunctionCode]*FucntionHandler, 32),
 	}
 }
 
@@ -37,6 +38,7 @@ func NewBuilder() Builder {
 
 type Builder struct {
 	du *DataHandler
+	fh map[FunctionCode]*FucntionHandler
 }
 
 func (duBuilder *Builder) AddFielder(field Fielder) *Builder {
@@ -62,6 +64,14 @@ func (duBuilder *Builder) AddHandler(fc FunctionCode, f Handler) *Builder {
 func (duBuilder *Builder) AddHandlerConfig(config *HandlerConfig) *Builder {
 	duBuilder.du.handlerMap = config.handlerMap
 	return duBuilder
+}
+
+func (duBuilder *Builder) NewHandler(fc FunctionCode) *FucntionHandler {
+	fh := &FucntionHandler{
+		fc: fc,
+	}
+	duBuilder.fh[fc] = fh
+	return fh
 }
 
 func (duBuilder *Builder) Build() (MainHandler, error) {
