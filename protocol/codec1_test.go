@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"encoding/binary"
-	"fmt"
 	"testing"
 )
 
@@ -146,8 +145,12 @@ func TestBCDString_String(t *testing.T) {
 
 func TestA(t *testing.T) {
 	h := new(FucntionHandler)
-	d := h.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer().Offset(-50).Done()
-	// src := d.SourceValue([]byte{0x00, 0x00, 0x00, 0x00})
-	// t.Logf("source value:%v,Type:%T\n", src, src)
-	fmt.Printf("%T\n", d)
+	h.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
+	h.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
+	//2147483647,-2147483648
+	result, err := h.Parse([]byte{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00})
+	if err != nil {
+		t.Errorf("Parse failed: %v", err)
+	}
+	t.Logf("result:%v\n", result)
 }
