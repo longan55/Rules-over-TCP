@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"encoding/binary"
+	"fmt"
 	"testing"
 )
 
@@ -141,4 +142,12 @@ func TestBCDString_String(t *testing.T) {
 	s1 := decoder1.BCD().String()
 	src1 := s1.SourceValue([]byte{0x31, 0x41, 0x59, 0x26})
 	t.Logf("source value:%v,Type:%T\n", src1, src1)
+}
+
+func TestA(t *testing.T) {
+	h := new(FucntionHandler)
+	d := h.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer().Offset(-50).Done()
+	// src := d.SourceValue([]byte{0x00, 0x00, 0x00, 0x00})
+	// t.Logf("source value:%v,Type:%T\n", src, src)
+	fmt.Printf("%T\n", d)
 }

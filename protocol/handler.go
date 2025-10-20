@@ -28,10 +28,26 @@ func NewHandlerConfig() *HandlerConfig {
 }
 
 type FucntionHandler struct {
-	fc FunctionCode
-	h  Handler
+	fc         FunctionCode
+	fieldNames []string
+	m          []*DecoderImpl
 }
 
-func (fh *FucntionHandler) NewDecoder(order binary.ByteOrder) *DecodeBuilder {
-	return &DecodeBuilder{order: order}
+func (fh *FucntionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
+	decoder := &DecoderImpl{order: order}
+	fh.fieldNames = append(fh.fieldNames, fieldName)
+	fh.m = append(fh.m, decoder)
+	return decoder
+}
+
+func (fh *FucntionHandler) Parse(data []byte) (map[string]any, error) {
+	result := make(map[string]any)
+	for i, decoder := range fh.m {
+		value, err := decoder.Decode(data)
+		if err != nil {
+			return nil, err
+		}
+		result[fh.fieldNames[i]] = value
+	}
+	return result, nil
 }

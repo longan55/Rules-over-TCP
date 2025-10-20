@@ -8,51 +8,121 @@ import (
 	"strconv"
 )
 
+// FunctionHandler -> NewDecoder
+//一个字段的配置链：DecoderBuilder -> Decode -> DataType -> Options
+
 type Decoder interface {
 	// 如果希望 value 是传地址/指针，入参类型应为指针类型，使用 any 表示任意类型的指针
 	encode(data []byte, value any) error
 }
 
-type DecodeBuilder struct {
-	order binary.ByteOrder
+type DecoderImpl struct {
+	bin        *BIN
+	bcd        *BCD
+	ascii      *ASCII
+	cp56time2a *CP56TIME2A
+	order      binary.ByteOrder
 }
 
-func NewDecoder(order binary.ByteOrder) *DecodeBuilder {
-	return &DecodeBuilder{order: order}
+func NewDecoder(order binary.ByteOrder) *DecoderImpl {
+	return &DecoderImpl{order: order}
 }
 
-func (builder *DecodeBuilder) BIN() *DecodeBIN {
-	return &DecodeBIN{order: builder.order}
+func (builder *DecoderImpl) Decode(data []byte) (any, error) {
+	if builder.bin != nil {
+		var value int
+		err := builder.bin.encode(data, &value)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
+	}
+	if builder.bcd != nil {
+		var value int
+		err := builder.bcd.encode(data, &value)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
+	}
+	if builder.ascii != nil {
+		var value string
+		err := builder.ascii.encode(data, &value)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
+	}
+	if builder.cp56time2a != nil {
+		var value string
+		err := builder.cp56time2a.encode(data, &value)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
+	}
+	return nil, nil
 }
 
-func (builder *DecodeBuilder) BCD() *BCD {
-	return &BCD{order: builder.order}
+func (builder *DecoderImpl) BIN() *BIN {
+	if builder.bcd != nil || builder.ascii != nil || builder.cp56time2a != nil {
+		panic("only one encode method can be used")
+	}
+	builder.bin = &BIN{order: builder.order}
+	return builder.bin
 }
 
-func (builder *DecodeBuilder) ASCII() *ASCII {
-	return &ASCII{order: builder.order}
+func (builder *DecoderImpl) BCD() *BCD {
+	if builder.bin != nil || builder.ascii != nil || builder.cp56time2a != nil {
+		panic("only one encode method can be used")
+	}
+	builder.bcd = &BCD{order: builder.order}
+	return builder.bcd
 }
 
-func (builder *DecodeBuilder) CP56TIME2A() *CP56TIME2A {
-	return &CP56TIME2A{order: builder.order}
+func (builder *DecoderImpl) ASCII() *ASCII {
+	if builder.bin != nil || builder.bcd != nil || builder.cp56time2a != nil {
+		panic("only one encode method can be used")
+	}
+	builder.ascii = &ASCII{order: builder.order}
+	return builder.ascii
 }
 
-type DecodeBIN struct {
+func (builder *DecoderImpl) CP56TIME2A() *CP56TIME2A {
+	if builder.bin != nil || builder.bcd != nil || builder.ascii != nil {
+		panic("only one encode method can be used")
+	}
+	builder.cp56time2a = &CP56TIME2A{order: builder.order}
+	return builder.cp56time2a
+}
+
+type DataTyper interface {
+	Value(data []byte) any
+}
+type BIN struct {
+	dataTyper  DataTyper
 	byteLength int
 	order      binary.ByteOrder
 }
 
-func (bin *DecodeBIN) SetByteLength(byteLength int) *DecodeBIN {
+func (bin *BIN) SourceValue(data []byte) any {
+	var srcValue any
+	bin.encode(data, &srcValue)
+	srcValue = bin.dataTyper.Value(data)
+	return srcValue
+}
+
+func (bin *BIN) SetByteLength(byteLength int) *BIN {
 	bin.byteLength = byteLength
 	return bin
 }
 
-func (bin *DecodeBIN) encode(data []byte, value any) error {
+func (bin *BIN) encode(data []byte, value any) error {
 	*value.(*int) = Bin2Int(data, bin.order)
 	return nil
 }
 
-func (bin *DecodeBIN) Integer() *BINInteger {
+func (bin *BIN) Integer() *BINInteger {
 	return &BINInteger{
 		encoder: bin,
 		order:   bin.order,
@@ -60,7 +130,7 @@ func (bin *DecodeBIN) Integer() *BINInteger {
 	}
 }
 
-func (bin *DecodeBIN) Float1() *BINFloat {
+func (bin *BIN) Float1() *BINFloat {
 	return &BINFloat{
 		encoder: bin,
 		order:   bin.order,
@@ -68,7 +138,7 @@ func (bin *DecodeBIN) Float1() *BINFloat {
 	}
 }
 
-func (bin *DecodeBIN) String1() *BINString {
+func (bin *BIN) String1() *BINString {
 	return &BINString{
 		encoder: bin,
 		order:   bin.order,
@@ -85,6 +155,10 @@ type BINInteger struct {
 	srcValue int
 	enum     map[int]any
 	bitmap   map[int]any
+}
+
+func (i *BINInteger) Done() Decoder {
+	return i.encoder
 }
 
 // TODO:Multiple和Offset，考虑是否需要设置幂等性
@@ -263,27 +337,27 @@ func (bcdf *BCDFloat) DecimalPlace(decimal int) *BCDFloat {
 func (bcdf *BCDFloat) SourceValue(data []byte) float64 {
 	temp := ""
 	bcdf.encoder.encode(data, &temp)
-	
+
 	// 先将字符串转换为浮点数
 	source, err := strconv.ParseFloat(temp, 64)
 	if err != nil {
 		return 0
 	}
-	
+
 	// 计算除以10的幂次后的值
 	value := source / math.Pow10(bcdf.decimal)
-	
+
 	// 使用FormatFloat和ParseFloat来精确控制小数位数
 	// 这可以确保结果按照指定的小数位数进行四舍五入，减少浮点数精度误差
 	format := "%." + strconv.Itoa(bcdf.decimal) + "f"
 	formatted := fmt.Sprintf(format, value)
-	
+
 	// 将格式化后的字符串转回浮点数
 	result, err := strconv.ParseFloat(formatted, 64)
 	if err != nil {
 		return value // 如果格式化失败，返回原始计算值
 	}
-	
+
 	return result
 }
 
