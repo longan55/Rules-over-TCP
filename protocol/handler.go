@@ -46,17 +46,30 @@ func (fh *FucntionHandler) NewDecoder(fieldName string, order binary.ByteOrder) 
 
 // TODO: 预防数组越界
 func (fh *FucntionHandler) Parse(data []byte) (map[string]any, error) {
-	fmt.Printf("function handler length:%d\n", fh.length)
+	if len(data) != fh.length {
+		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
+	}
+	//HEX格式：每两个字节之间用空格隔开，前面添加0X，不足2位用0填充
+	fmt.Printf("%d bytes,SOURCE: [%# X]\n", len(data), data)
 	result := make(map[string]any, len(fh.m))
 	offset := 0
-	for i, decoder := range fh.m {
-		input := data[offset : offset+decoder.bin.GetByteLength()]
-		value, err := decoder.Decode(input)
+	for i, impl := range fh.m {
+		fieldName := fh.fieldNames[i]
+		length := impl.decoder.GetByteLength()
+		fmt.Printf("FIELD(%s)_%d(%d): [%# X] ", fieldName, i+1, length, data[offset:offset+length])
+		input := data[offset : offset+length]
+		value, err := impl.Decode(input)
 		if err != nil {
 			return nil, err
 		}
-		result[fh.fieldNames[i]] = value
-		offset += decoder.bin.GetByteLength()
+		offset += length
+		pd := ParsedData{
+			Bytes:     input,
+			Origin:    value,
+			Explained: impl.decoder.ExplainedValue(value),
+		}
+		result[fieldName] = pd
+		fmt.Printf("DecodeValue:%v\n", value)
 	}
 	return result, nil
 }
@@ -65,3 +78,9 @@ func (fh *FucntionHandler) Parse(data []byte) (map[string]any, error) {
 // Decoder/DecoderImpl     解码函数，
 // BIN/BCD/ASCII/CP56TIME2A
 // BINInteger/BCDInteger...
+
+type ParsedData struct {
+	Bytes     []byte
+	Origin    any
+	Explained any
+}
