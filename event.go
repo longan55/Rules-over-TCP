@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 type EventType uint64
 

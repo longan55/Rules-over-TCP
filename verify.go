@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 import "encoding/binary"
 

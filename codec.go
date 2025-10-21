@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 import (
 	"encoding/binary"
@@ -8,14 +8,11 @@ import (
 	"strconv"
 )
 
-// FunctionHandler -> NewDecoder
-//一个字段的配置链：DecoderBuilder -> Decode -> DataType -> Options
-
 type DecodeType interface {
-	// 如果希望 value 是传地址/指针，入参类型应为指针类型，使用 any 表示任意类型的指针
 	decode(data []byte, value any) error
 	Decode(data []byte) any
 	GetByteLength() int
+	// 如果希望 src 是传地址/指针，入参类型应为指针类型，使用 any 表示任意类型的指针
 	ExplainedValue(src any) any
 }
 
@@ -231,11 +228,12 @@ func (f *BINFloat) Value(src any) any {
 }
 
 func (f *BINFloat) ExplainedValue(src any) any {
-	return f.Value(src)
+	return src
 }
 
 func (s *BINString) ExplainedValue(src any) any {
-	return s.Value(src)
+	srcStr := src.(string)
+	return srcStr
 }
 
 type BINString struct {

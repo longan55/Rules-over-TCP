@@ -1,3 +1,3 @@
-module github.com/longan55/proto
+module github.com/longan55/Rules-over-TCP
 
-go 1.24.2
+go 1.24.4

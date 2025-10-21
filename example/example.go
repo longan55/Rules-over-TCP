@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/longan55/proto/protocol"
+	rot "github.com/longan55/Rules-over-TCP"
 )
 
 // 起始符 数据长度    数据域  校验
@@ -23,27 +23,27 @@ func TestSrc() {
 	//原始数据
 	var sourceData = [][]byte{{0x68}, {0x01}, {0x00}, {0x01}, {0x97}}
 	//处理器构建器
-	builder := protocol.NewBuilder()
+	builder := rot.NewBuilder()
 
 	//添加加密配置
-	cryptConfig := protocol.NewCryptConfig()
-	cryptConfig.AddCrypt(0, protocol.CryptNone)
+	cryptConfig := rot.NewCryptConfig()
+	cryptConfig.AddCrypt(0, rot.CryptNone)
 	builder.AddCryptConfig(cryptConfig)
 
 	//配置处理器，来数据时自动处理
-	handlerConfig := protocol.NewHandlerConfig()
-	handlerConfig.AddHandler(0x01, protocol.HandlerTest)
+	handlerConfig := rot.NewHandlerConfig()
+	handlerConfig.AddHandler(0x01, rot.HandlerTest)
 	builder.AddHandlerConfig(handlerConfig)
 
 	//TODO:
 	//配置编码器，用于主动发送数据或被处理器调用
 
 	//构建处理器
-	builder.AddFielder(protocol.NewStarter([]byte{0x68})).
-		AddFielder(protocol.NewDataLen(1)).
-		AddFielder(protocol.NewCyptoFlag()).
-		AddFielder(protocol.NewFuncCode()).
-		AddFielder(protocol.NewDataZone())
+	builder.AddFielder(rot.NewStarter([]byte{0x68})).
+		AddFielder(rot.NewDataLen(1)).
+		AddFielder(rot.NewCyptoFlag()).
+		AddFielder(rot.NewFuncCode()).
+		AddFielder(rot.NewDataZone())
 	dataHander, err := builder.Build()
 	if err != nil {
 		fmt.Println("构建处理器失败:", err)

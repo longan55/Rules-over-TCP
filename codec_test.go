@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 import (
 	"encoding/binary"
@@ -149,8 +149,14 @@ func TestA(t *testing.T) {
 	h.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	h.NewDecoder("c", binary.BigEndian).BIN().SetByteLength(2).Integer()
 	h.NewDecoder("d", binary.BigEndian).BIN().SetByteLength(2).Float1().Multiple(0.01)
+	h.NewDecoder("e", binary.BigEndian).BIN().SetByteLength(1).Integer().SetEnum(map[int]any{
+		0: "A",
+		1: "B",
+		2: "C",
+		3: "D",
+	})
 	//2147483647,-2147483648
-	result, err := h.Parse([]byte{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34})
+	result, err := h.Parse([]byte{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01})
 	if err != nil {
 		t.Errorf("Parse failed: %v", err)
 	}

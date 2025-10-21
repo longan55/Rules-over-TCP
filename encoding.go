@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 import (
 	"bytes"
@@ -265,7 +265,7 @@ func Bin2Int(b []byte, orders ...binary.ByteOrder) int {
 		if len(b) > 0 && b[0]&0x80 != 0 {
 			signed = true
 		}
-		
+
 		// 如果是有符号负数，使用补码规则处理
 		if signed {
 			// 计算对应正数的补码值
@@ -291,7 +291,7 @@ func Bin2Int(b []byte, orders ...binary.ByteOrder) int {
 			}
 			return -val
 		}
-		
+
 		// 无符号数处理
 		val := 0
 		for i := 0; i < len(b); i++ {

@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 type CryptFunc func(data []byte) ([]byte, error)
 

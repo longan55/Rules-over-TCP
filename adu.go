@@ -1,4 +1,4 @@
-package protocol
+package rot
 
 import (
 	"bytes"
@@ -105,8 +105,8 @@ type DataHandler struct {
 
 	conn net.Conn
 	//存储协议元素信息
-	Fields     []Fielder
-	parserMap  map[FunctionCode]Parser
+	Fields []Fielder
+	// parserMap  map[FunctionCode]Parser
 	handlerMap map[FunctionCode]Handler
 }
 
