@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	rot "github.com/longan55/Rules-over-TCP"
@@ -21,7 +22,11 @@ func main() {
 
 func TestSrc() {
 	//原始数据
-	var sourceData = [][]byte{{0x68}, {0x01}, {0x00}, {0x01}, {0x97}}
+	var sourceData = [][]byte{{0x68},
+		{0x0F},
+		{0x00},
+		{0x01},
+		{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01}}
 	//处理器构建器
 	builder := rot.NewBuilder()
 
@@ -32,7 +37,26 @@ func TestSrc() {
 
 	//配置处理器，来数据时自动处理
 	handlerConfig := rot.NewHandlerConfig()
-	handlerConfig.AddHandler(0x01, rot.HandlerTest)
+	fh := new(rot.FucntionHandler)
+	fh.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
+	fh.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
+	fh.NewDecoder("c", binary.BigEndian).BIN().SetByteLength(2).Integer()
+	fh.NewDecoder("d", binary.BigEndian).BIN().SetByteLength(2).Float1().Multiple(0.01)
+	fh.NewDecoder("e", binary.BigEndian).BIN().SetByteLength(1).Integer().SetEnum(map[int]any{
+		0: "A",
+		1: "B",
+		2: "C",
+		3: "D",
+	})
+	fh.SetHandle(func(fh *rot.FucntionHandler, data []byte) error {
+		parsedData, err := fh.Parse(data)
+		if err != nil {
+			return err
+		}
+		fmt.Println("fh:", parsedData)
+		return nil
+	})
+	handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)
 	builder.AddHandlerConfig(handlerConfig)
 
 	//TODO:

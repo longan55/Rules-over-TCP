@@ -51,12 +51,7 @@ func (duBuilder *Builder) AddCryptConfig(cryptConfig *CryptConfig) *Builder {
 	return duBuilder
 }
 
-// func (duBuilder *Builder) AddParserConfig(config *ParserConfig) *Builder {
-// 	duBuilder.du.parserMap = config.parserMap
-// 	return duBuilder
-// }
-
-func (duBuilder *Builder) AddHandler(fc FunctionCode, f Handler) *Builder {
+func (duBuilder *Builder) AddHandler(fc FunctionCode, f *FucntionHandler) *Builder {
 	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
@@ -85,11 +80,11 @@ func (duBuilder *Builder) Build() (MainHandler, error) {
 }
 
 type MainHandler interface {
-	AddHandler(fc FunctionCode, f Handler)
+	AddHandler(fc FunctionCode, f *FucntionHandler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length uint64)
-	Parse(adu [][]byte) (Handler, error)
-	Serialize(f Handler) []byte
+	Parse(adu [][]byte) (*FucntionHandler, error)
+	// Serialize(f *FucntionHandler) []byte
 }
 
 var _ MainHandler = (*DataHandler)(nil)
@@ -107,12 +102,12 @@ type DataHandler struct {
 	//存储协议元素信息
 	Fields []Fielder
 	// parserMap  map[FunctionCode]Parser
-	handlerMap map[FunctionCode]Handler
+	handlerMap map[FunctionCode]*FucntionHandler
 }
 
-func (dph *DataHandler) AddHandler(fc FunctionCode, f Handler) {
+func (dph *DataHandler) AddHandler(fc FunctionCode, f *FucntionHandler) {
 	if dph.handlerMap == nil {
-		dph.handlerMap = make(map[FunctionCode]Handler)
+		dph.handlerMap = make(map[FunctionCode]*FucntionHandler)
 	}
 	dph.handlerMap[fc] = f
 }
@@ -188,7 +183,12 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 					if err != nil {
 						return
 					}
-					err = dph.handlerMap[dph.functionCode](data)
+					hd, ok := dph.handlerMap[dph.functionCode]
+					if !ok {
+						fmt.Println("未注册功能码:", dph.functionCode)
+						return
+					}
+					err = hd.Handle(data)
 					if err != nil {
 						return
 					}
@@ -203,7 +203,7 @@ func (dph *DataHandler) SetDataLength(length uint64) {
 	dph.dataLength = length
 }
 
-func (dph *DataHandler) Parse(alldata [][]byte) (Handler, error) {
+func (dph *DataHandler) Parse(alldata [][]byte) (*FucntionHandler, error) {
 	fmt.Println("解析前数据:", alldata)
 	for _, field := range dph.Fields {
 		// if field.Type() == START {
@@ -232,17 +232,17 @@ func (dph *DataHandler) Parse(alldata [][]byte) (Handler, error) {
 			if err != nil {
 				return nil, err
 			}
-			err = dph.handlerMap[dph.functionCode](data)
+			hd, ok := dph.handlerMap[dph.functionCode]
+			if !ok {
+				return nil, fmt.Errorf("未注册功能码:%v", dph.functionCode)
+			}
+			err = hd.Handle(data)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 	return nil, nil
-}
-
-func (dph *DataHandler) Serialize(f Handler) []byte {
-	return nil
 }
 
 func (dph *DataHandler) Info() {
