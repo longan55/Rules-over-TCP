@@ -19,8 +19,8 @@ import (
 //5. 需要提供多种元素的默认处理
 //6. 提供方便扩展元素的接口
 
-func NewBuilder() Builder {
-	return Builder{
+func NewBuilder() *Builder {
+	return &Builder{
 		du: &DataHandler{
 			Fields: make([]Fielder, 0, 3),
 		},
