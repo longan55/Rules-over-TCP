@@ -54,11 +54,11 @@ func TestSrc() {
 	}
 
 	//解析
-	if fun, err := dataHander.Parse(sourceData); err != nil {
+	if err := dataHander.Parse(sourceData); err != nil {
 		fmt.Println("解析失败:", err)
 		return
 	} else {
-		fmt.Println("解析成功:", fun)
+		fmt.Println("解析成功!")
 	}
 }
 
@@ -75,12 +75,8 @@ func setHandlerConfig(builder *rot.Builder) {
 		2: "C",
 		3: "D",
 	})
-	fh.SetHandle(func(fh *rot.FucntionHandler, data []byte) error {
-		parsedData, err := fh.Parse(data)
-		if err != nil {
-			return err
-		}
-		fmt.Println("fh:", parsedData)
+	fh.SetHandle(func(parsedData map[string]rot.ParsedData) error {
+		fmt.Println("parsedData:", parsedData)
 		return nil
 	})
 	handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)

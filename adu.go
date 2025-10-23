@@ -11,14 +11,6 @@ import (
 	"reflect"
 )
 
-//通过框架配置协议，框架自动解析和封装，无需自己开发。
-//1. 定义一个结构体(Data Unit Handler)包含协议组成元素信息
-//2. 每次解析和组装都要使用这个结构体(DPH)
-//3. DPH需要一个解析数据获取Data域的方法，返回Data域的字节切片
-//4. 定义功能码接口(Function),解析数据域和组装数据域
-//5. 需要提供多种元素的默认处理
-//6. 提供方便扩展元素的接口
-
 func NewBuilder() *Builder {
 	return &Builder{
 		du: &DataHandler{
@@ -33,8 +25,6 @@ func NewBuilder() *Builder {
 //2. 第一个元素到数据域之前的元素组成 消息头部元素.
 //3. 数据域称为消息体元素
 //4. 最后一个元素必须是校验码元素
-
-//注册回调函数,根据功能码,返回对应的功能结构体
 
 type Builder struct {
 	du *DataHandler
@@ -83,7 +73,7 @@ type MainHandler interface {
 	AddHandler(fc FunctionCode, f *FucntionHandler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length uint64)
-	Parse(adu [][]byte) (*FucntionHandler, error)
+	Parse(adu [][]byte) error
 	// Serialize(f *FucntionHandler) []byte
 }
 
@@ -203,7 +193,7 @@ func (dph *DataHandler) SetDataLength(length uint64) {
 	dph.dataLength = length
 }
 
-func (dph *DataHandler) Parse(alldata [][]byte) (*FucntionHandler, error) {
+func (dph *DataHandler) Parse(alldata [][]byte) error {
 	fmt.Println("解析前数据:", alldata)
 	for _, field := range dph.Fields {
 		// if field.Type() == START {
@@ -230,19 +220,19 @@ func (dph *DataHandler) Parse(alldata [][]byte) (*FucntionHandler, error) {
 			var err error
 			data, err = dph.cryptLib[dph.encryptionFlag](data)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			hd, ok := dph.handlerMap[dph.functionCode]
 			if !ok {
-				return nil, fmt.Errorf("未注册功能码:%v", dph.functionCode)
+				return fmt.Errorf("未注册功能码:%v", dph.functionCode)
 			}
 			err = hd.Handle(data)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 func (dph *DataHandler) Info() {

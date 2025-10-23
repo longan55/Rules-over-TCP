@@ -14,7 +14,8 @@ var HandlerTest = &FucntionHandler{
 // 功能码,长度应该更加广泛,但暂时使用1字节
 type FunctionCode byte
 
-type Handler func(fh *FucntionHandler, data []byte) error
+// type Handler func(fh *FucntionHandler, data []byte) error
+type Handler func(parsed map[string]ParsedData) error
 
 type HandlerConfig struct {
 	handlerMap map[FunctionCode]*FucntionHandler
@@ -51,13 +52,12 @@ func (fh *FucntionHandler) Parse(data []byte) (map[string]ParsedData, error) {
 		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
 	}
 	//HEX格式：每两个字节之间用空格隔开，前面添加0X，不足2位用0填充
-	fmt.Printf("%d bytes,SOURCE: [%# X]\n", len(data), data)
 	result := make(map[string]ParsedData, len(fh.m))
 	offset := 0
 	for i, impl := range fh.m {
 		fieldName := fh.fieldNames[i]
 		length := impl.decoder.GetByteLength()
-		fmt.Printf("FIELD(%s)_%d(%d): [%# X] ", fieldName, i+1, length, data[offset:offset+length])
+		fmt.Printf("No.%d_FIELD_(%s)_len(%d): [%# X] ", i+1, fieldName, length, data[offset:offset+length])
 		input := data[offset : offset+length]
 		value, err := impl.Decode(input)
 		if err != nil {
@@ -84,7 +84,11 @@ func (fh *FucntionHandler) Handle(data []byte) error {
 	if fh.handler == nil {
 		return fmt.Errorf("handler is nil")
 	}
-	return fh.handler(fh, data)
+	parsed, err := fh.Parse(data)
+	if err != nil {
+		return err
+	}
+	return fh.handler(parsed)
 }
 
 // FunctionHandler Parse() 解析函数，解码所有字段得到总的数据
