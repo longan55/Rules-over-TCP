@@ -11,10 +11,10 @@ import (
 	"reflect"
 )
 
-func NewBuilder() *Builder {
-	return &Builder{
-		du: &DataHandler{
-			Fields: make([]Fielder, 0, 3),
+func NewProtocolBuilder() *ProtocolBuilder {
+	return &ProtocolBuilder{
+		du: &ProtocolImpl{
+			elements: make([]ProtocolElement, 0, 3),
 		},
 		fh: make(map[FunctionCode]*FucntionHandler, 32),
 	}
@@ -26,32 +26,32 @@ func NewBuilder() *Builder {
 //3. 数据域称为消息体元素
 //4. 最后一个元素必须是校验码元素
 
-type Builder struct {
-	du *DataHandler
+type ProtocolBuilder struct {
+	du *ProtocolImpl
 	fh map[FunctionCode]*FucntionHandler
 }
 
-func (duBuilder *Builder) AddFielder(field Fielder) *Builder {
-	duBuilder.du.Fields = append(duBuilder.du.Fields, field)
+func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolBuilder {
+	duBuilder.du.elements = append(duBuilder.du.elements, element)
 	return duBuilder
 }
 
-func (duBuilder *Builder) AddCryptConfig(cryptConfig *CryptConfig) *Builder {
+func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *ProtocolBuilder {
 	duBuilder.du.cryptLib = cryptConfig.Config()
 	return duBuilder
 }
 
-func (duBuilder *Builder) AddHandler(fc FunctionCode, f *FucntionHandler) *Builder {
+func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FucntionHandler) *ProtocolBuilder {
 	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
 
-func (duBuilder *Builder) AddHandlerConfig(config *HandlerConfig) *Builder {
+func (duBuilder *ProtocolBuilder) AddHandlerConfig(config *HandlerConfig) *ProtocolBuilder {
 	duBuilder.du.handlerMap = config.handlerMap
 	return duBuilder
 }
 
-func (duBuilder *Builder) NewHandler(fc FunctionCode) *FucntionHandler {
+func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FucntionHandler {
 	fh := &FucntionHandler{
 		fc: fc,
 	}
@@ -59,17 +59,17 @@ func (duBuilder *Builder) NewHandler(fc FunctionCode) *FucntionHandler {
 	return fh
 }
 
-func (duBuilder *Builder) Build() (MainHandler, error) {
+func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	//todo 起始码+长度码 的长度
-	for index, field := range duBuilder.du.Fields {
-		field.SetIndex(index)
-		fmt.Printf("元素名称:%s, 元素类型:%v, 自身长度:%v\n", field.GetName(), field.Type(), field.Length())
+	for index, element := range duBuilder.du.elements {
+		element.SetIndex(index)
+		fmt.Printf("元素名称:%s, 元素类型:%v, 自身长度:%v\n", element.GetName(), element.Type(), element.Length())
 	}
 	//TODO: 校验元素是否符合协议规范
 	return duBuilder.du, nil
 }
 
-type MainHandler interface {
+type Protocol interface {
 	AddHandler(fc FunctionCode, f *FucntionHandler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length uint64)
@@ -77,10 +77,10 @@ type MainHandler interface {
 	// Serialize(f *FucntionHandler) []byte
 }
 
-var _ MainHandler = (*DataHandler)(nil)
+var _ Protocol = (*ProtocolImpl)(nil)
 
 // dph 应用数据单元 结构体
-type DataHandler struct {
+type ProtocolImpl struct {
 	//当前数据单元的 数据域长度
 	dataLength   uint64
 	functionCode FunctionCode
@@ -90,12 +90,12 @@ type DataHandler struct {
 
 	conn net.Conn
 	//存储协议元素信息
-	Fields []Fielder
+	elements []ProtocolElement
 	// parserMap  map[FunctionCode]Parser
 	handlerMap map[FunctionCode]*FucntionHandler
 }
 
-func (dph *DataHandler) AddHandler(fc FunctionCode, f *FucntionHandler) {
+func (dph *ProtocolImpl) AddHandler(fc FunctionCode, f *FucntionHandler) {
 	if dph.handlerMap == nil {
 		dph.handlerMap = make(map[FunctionCode]*FucntionHandler)
 	}
@@ -103,7 +103,7 @@ func (dph *DataHandler) AddHandler(fc FunctionCode, f *FucntionHandler) {
 }
 
 // 字段顺序已有---》新增处理顺序
-func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
+func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 	dph.conn = conn
 	for {
 		select {
@@ -111,13 +111,13 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 			//停止读取
 			return
 		default:
-			alldata := make([][]byte, 0, len(dph.Fields))
-			//第一遍遍历fields, 读取一个完整的数据单元
-			for _, field := range dph.Fields {
+			alldata := make([][]byte, 0, len(dph.elements))
+			//第一遍遍历elements, 读取一个完整的数据单元
+			for _, element := range dph.elements {
 				//定义好合适长度的buf,接收该元素数据
 				var buf []byte
-				if field.Type() != DATA {
-					buf = make([]byte, field.Length())
+				if element.Type() != Payload {
+					buf = make([]byte, element.Length())
 				} else {
 					buf = make([]byte, dph.dataLength)
 				}
@@ -131,16 +131,16 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 				//is start with correct code?
 				startFlag := true
 
-				typ, a, err := field.Deal(alldata)
+				typ, a, err := element.Deal(alldata)
 				switch typ {
-				case START:
+				case Preamble:
 					if err != nil {
 						fmt.Println("起始符校验失败: ", err)
 						startFlag = false
 					}
-				case LENGTH:
+				case Length:
 					dph.dataLength = a.(uint64)
-				case ENCRYPTION:
+				case EncryptionFlag:
 					dph.encryptionFlag = a.(uint64)
 				}
 				if !startFlag {
@@ -149,24 +149,24 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 				//将数据拼接
 				alldata = append(alldata, buf)
 			}
-			//第二次遍历fields, 解析数据单元
-			for _, field := range dph.Fields {
-				if field.Type() == START {
+			//第二次遍历elements, 解析数据单元
+			for _, element := range dph.elements {
+				if element.Type() == Preamble {
 					continue
 				}
-				typ, a, err := field.Deal(alldata)
+				typ, a, err := element.Deal(alldata)
 				if err != nil {
 					fmt.Println("数据解析失败:", err)
 					break
 				}
 				switch typ {
-				case LENGTH:
+				case Length:
 					dph.dataLength = a.(uint64)
-				case ENCRYPTION:
+				case EncryptionFlag:
 					dph.encryptionFlag = a.(uint64)
-				case FUNCTION:
+				case Function:
 					dph.functionCode = a.(FunctionCode)
-				case DATA:
+				case Payload:
 					data := a.([]byte)
 					var err error
 					data, err = dph.cryptLib[dph.encryptionFlag](data)
@@ -189,33 +189,33 @@ func (dph *DataHandler) Handle(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (dph *DataHandler) SetDataLength(length uint64) {
+func (dph *ProtocolImpl) SetDataLength(length uint64) {
 	dph.dataLength = length
 }
 
-func (dph *DataHandler) Parse(alldata [][]byte) error {
+func (dph *ProtocolImpl) Parse(alldata [][]byte) error {
 	fmt.Println("解析前数据:", alldata)
-	for _, field := range dph.Fields {
-		// if field.Type() == START {
-		// 	fmt.Println("起始符:", alldata[field.GetIndex()])
+	for _, element := range dph.elements {
+		// if element.Type() == START {
+		// 	fmt.Println("起始符:", alldata[element.GetIndex()])
 		// 	continue
 		// }
-		if field.Type() == START {
-			continue
-		}
-		typ, a, err := field.Deal(alldata)
+		// if element.Type() == Preamble {
+		// 	continue
+		// }
+		typ, a, err := element.Deal(alldata)
 		if err != nil {
 			fmt.Println("数据解析失败:", err)
 			break
 		}
 		switch typ {
-		case LENGTH:
+		case Length:
 			dph.dataLength = a.(uint64)
-		case ENCRYPTION:
+		case EncryptionFlag:
 			dph.encryptionFlag = a.(uint64)
-		case FUNCTION:
+		case Function:
 			dph.functionCode = a.(FunctionCode)
-		case DATA:
+		case Payload:
 			data := a.([]byte)
 			var err error
 			data, err = dph.cryptLib[dph.encryptionFlag](data)
@@ -235,242 +235,242 @@ func (dph *DataHandler) Parse(alldata [][]byte) error {
 	return nil
 }
 
-func (dph *DataHandler) Info() {
-	for _, v := range dph.Fields {
+func (dph *ProtocolImpl) Info() {
+	for _, v := range dph.elements {
 		of := reflect.TypeOf(v)
 		fmt.Println("类型:", of, " 长度:", v.Length())
 	}
 }
 
 // Debug 解析数据
-func (dph *DataHandler) Debug(r io.Reader, source []byte) {
+func (dph *ProtocolImpl) Debug(r io.Reader, source []byte) {
 	// 起始符 只需要判断是否相等
 	// 数据域长度 要传给数据域元素作为长度
 	// 加密标志 是否对指定元素的值进行加密或解密
 	// 校验码 是否对指定元素进行校验计算
 	// offset := 0
 	// //遍历所有元素
-	// for _, field := range dph.Fields {
-	// 	//根据元素Field获取对应数据切片
-	// 	data := source[offset : offset+field.Length()]
+	// for _, element := range dph.elements {
+	// 	//根据元素element获取对应数据切片
+	// 	data := source[offset : offset+element.Length()]
 	// 	//更新偏移量
-	// 	offset += field.Length()
+	// 	offset += element.Length()
 	// 	//debug打印元素
-	// 	if field.GetScale() == 0 {
-	// 		fmt.Printf("[%s] = %0d", field.GetName(), data)
+	// 	if element.GetScale() == 0 {
+	// 		fmt.Printf("[%s] = %0d", element.GetName(), data)
 	// 	} else {
-	// 		fmt.Printf("[%s] = %0x", field.GetName(), data)
+	// 		fmt.Printf("[%s] = %0x", element.GetName(), data)
 	// 	}
 
 	// 	//处理方法
-	// 	_, err := field.Deal(data)
+	// 	_, err := element.Deal(data)
 	// 	if err != nil { //log.Println("数据解析出错! [error]:", err)
 	// 		fmt.Printf("数据解析出错! [error]: %v\n", err)
 	// 	}
 	// }
 }
 
-// Fielder 元素接口
-type Fielder interface {
+// ProtocolElement 元素接口
+type ProtocolElement interface {
 	GetIndex() int
 	SetIndex(index int)
 	GetName() string
-	Type() FieldType
+	Type() ProtocolElementType
 	RealValue() []byte
 	Length() int
 	GetScale() uint8
 	GetOrder() binary.ByteOrder
 	GetRange() (start, end uint8)
-	Deal([][]byte) (FieldType, any, error)
+	Deal([][]byte) (ProtocolElementType, any, error)
 }
 
-type FieldType byte
+type ProtocolElementType byte
 
 const (
-	// 起始符
-	START FieldType = iota
-	// 数据域长度
-	LENGTH
+	// 帧首符
+	Preamble ProtocolElementType = iota
+	// 当前元素之后的数据长度
+	Length
 	// 加密标志
-	ENCRYPTION
+	EncryptionFlag
 	// 功能码
-	FUNCTION
-	// 数据域
-	DATA
-	// 校验码
-	CHECK
+	Function
+	// 消息负载
+	Payload
+	// 校验和
+	Checksum
 )
 
-var _ Fielder = (*Field)(nil)
+var _ ProtocolElement = (*ProtocolElementImpl)(nil)
 
-// Field 基础元素结构体
-type Field struct {
+// ProtocolElementImpl 基础元素结构体
+type ProtocolElementImpl struct {
 	//元数据: 存储该元素的元数据(用于描述说明)
-	index    int                                                        //说明该元素的索引
-	Typ      FieldType                                                  //元素类型
-	name     string                                                     //元素名字
-	scale    uint8                                                      // 1十六进制，0十进制
-	len      int                                                        //元素本身长度
-	defaultV []byte                                                     //默认值
-	order    binary.ByteOrder                                           //大小端
-	start    uint8                                                      //开始索引: 该元素影响的元素区域的第一个元素索引
-	end      uint8                                                      //结束索引: 该元素影响的元素区域的最后一个元素索引
-	DealFunc func(field Fielder, data [][]byte) (FieldType, any, error) //处理函数
+	index    int                                                                            //说明该元素的索引
+	Typ      ProtocolElementType                                                            //元素类型
+	name     string                                                                         //元素名字
+	scale    uint8                                                                          // 1十六进制，0十进制
+	len      int                                                                            //元素本身长度
+	defaultV []byte                                                                         //默认值
+	order    binary.ByteOrder                                                               //大小端
+	start    uint8                                                                          //开始索引: 该元素影响的元素区域的第一个元素索引
+	end      uint8                                                                          //结束索引: 该元素影响的元素区域的最后一个元素索引
+	DealFunc func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
 	//临时数据: 存储当前adu的数据
-	realData   []byte
-	parsedData any
+	// realData   []byte
+	// parsedData any
 }
 
-func (f *Field) GetIndex() int {
+func (f *ProtocolElementImpl) GetIndex() int {
 	return f.index
 }
 
-func (f *Field) SetIndex(index int) {
+func (f *ProtocolElementImpl) SetIndex(index int) {
 	f.index = index
 }
 
-func (f *Field) GetName() string {
+func (f *ProtocolElementImpl) GetName() string {
 	return f.name
 }
 
-func (f *Field) Type() FieldType {
+func (f *ProtocolElementImpl) Type() ProtocolElementType {
 	return f.Typ
 }
 
-func (f *Field) RealValue() []byte {
+func (f *ProtocolElementImpl) RealValue() []byte {
 	return f.defaultV
 }
-func (f *Field) SetLen(l int) {
+func (f *ProtocolElementImpl) SetLen(l int) {
 	f.len = l
 }
-func (f *Field) Length() int {
+func (f *ProtocolElementImpl) Length() int {
 	return f.len
 }
 
-func (f *Field) GetScale() uint8 {
+func (f *ProtocolElementImpl) GetScale() uint8 {
 	return f.scale
 }
 
-func (f *Field) GetOrder() binary.ByteOrder {
+func (f *ProtocolElementImpl) GetOrder() binary.ByteOrder {
 	return f.order
 }
 
-func (f *Field) GetRange() (start, end uint8) {
+func (f *ProtocolElementImpl) GetRange() (start, end uint8) {
 	return f.start, f.end
 }
 
-func (f *Field) Deal(data [][]byte) (FieldType, any, error) {
+func (f *ProtocolElementImpl) Deal(data [][]byte) (ProtocolElementType, any, error) {
 	return f.DealFunc(f, data)
 }
 
 // 起始符
-func NewStarter(start []byte) Fielder {
-	field := &Field{
-		Typ:      START,
-		name:     "起始符",
+func NewStarter(start []byte) ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:      Preamble,
+		name:     "帧首符",
 		defaultV: start,
 		len:      len(start),
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
 		if data == nil {
-			return field.Type(), nil, errors.New("数据为空")
+			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < field.Length() {
-			return field.Type(), nil, errors.New("数据长度小于起始符长度")
+		if len(data) < element.Length() {
+			return element.Type(), nil, errors.New("数据长度小于起始符长度")
 		}
-		if !bytes.Equal(data[0][:field.Length()], field.RealValue()) {
-			return field.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", field.RealValue(), data[0][:field.Length()])
+		if !bytes.Equal(data[0][:element.Length()], element.RealValue()) {
+			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.RealValue(), data[0][:element.Length()])
 		}
-		fmt.Printf("起始符:\t\t\t[%#0X]\n", data[0][:field.Length()])
-		return field.Type(), nil, nil
+		fmt.Printf("起始符:\t\t\t[%#0X]\n", data[0][:element.Length()])
+		return element.Type(), nil, nil
 	}
-	return field
+	return element
 }
 
-func NewDataLen(length int) Fielder {
-	field := &Field{
-		Typ:      LENGTH,
-		name:     "数据域长度",
+func NewDataLen(length int) ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:      Length,
+		name:     "帧长度",
 		defaultV: nil,
 		len:      length,
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
 		if data == nil {
-			return field.Type(), nil, errors.New("数据为空")
+			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < field.Length() {
-			return field.Type(), nil, errors.New("数据长度小于数据域长度字段长度")
+		if len(data) < element.Length() {
+			return element.Type(), nil, errors.New("数据长度小于帧长度字段长度")
 		}
-		lenData := data[field.GetIndex()]
-		u64, err := BIN2Uint64(lenData, field.GetOrder())
+		lenData := data[element.GetIndex()]
+		u64, err := BIN2Uint64(lenData, element.GetOrder())
 		if err != nil {
-			return field.Type(), nil, err
+			return element.Type(), nil, err
 		}
-		fmt.Printf("数据域长度:\t\t[%d]\n", u64)
-		return field.Type(), u64, nil
+		fmt.Printf("帧长度:\t\t\t[%d]\n", u64)
+		return element.Type(), u64, nil
 	}
-	return field
+	return element
 }
 
 // TODO: 加密标志，设置加密算法库。
-func NewCyptoFlag() Fielder {
-	field := &Field{
-		Typ:      ENCRYPTION,
-		name:     "加密标志",
+func NewCyptoFlag() ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:      EncryptionFlag,
+		name:     "加密标识",
 		defaultV: []byte{0x01},
 		len:      1,
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
 		if data == nil {
-			return field.Type(), nil, errors.New("数据为空")
+			return element.Type(), nil, errors.New("数据为空")
 		}
-		flagdata := data[field.GetIndex()]
-		u64, err := BIN2Uint64(flagdata, field.GetOrder())
+		flagdata := data[element.GetIndex()]
+		u64, err := BIN2Uint64(flagdata, element.GetOrder())
 		if err != nil {
-			return field.Type(), false, err
+			return element.Type(), false, err
 		}
-		fmt.Printf("加密标志:\t\t[%#0X]\n", data[field.GetIndex()])
-		return field.Type(), u64, nil
+		fmt.Printf("加密标识:\t\t[%#0X]\n", data[element.GetIndex()])
+		return element.Type(), u64, nil
 	}
-	return field
+	return element
 }
 
-func NewFuncCode() Fielder {
-	field := &Field{
-		Typ:      FUNCTION,
+func NewFuncCode() ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:      Function,
 		name:     "功能码",
 		defaultV: nil,
 		len:      1,
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
 		if data == nil {
-			return field.Type(), nil, errors.New("数据为空")
+			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < field.Length() {
-			return field.Type(), nil, errors.New("数据长度小于功能码字段长度")
+		if len(data) < element.Length() {
+			return element.Type(), nil, errors.New("数据长度小于功能码字段长度")
 		}
-		fmt.Printf("功能码:\t\t\t[%#0X]\n", data[field.GetIndex()])
-		fc := FunctionCode(data[field.GetIndex()][0])
-		return field.Type(), fc, nil
+		fmt.Printf("功能码:\t\t\t[%#0X]\n", data[element.GetIndex()])
+		fc := FunctionCode(data[element.GetIndex()][0])
+		return element.Type(), fc, nil
 	}
-	return field
+	return element
 }
-func NewDataZone() Fielder {
-	field := &Field{
-		Typ:      DATA,
-		name:     "数据域",
+func NewPayload() ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:      Payload,
+		name:     "帧负载",
 		defaultV: nil,
 		len:      1,
 	}
-	field.DealFunc = func(field Fielder, data [][]byte) (FieldType, any, error) {
+	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
 		if data == nil {
-			return field.Type(), nil, errors.New("数据为空")
+			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < field.Length() {
-			return field.Type(), nil, errors.New("数据长度小于数据域字段长度")
+		if len(data) < element.Length() {
+			return element.Type(), nil, errors.New("数据长度小于帧负载字段长度")
 		}
-		fmt.Printf("数据域:\t\t\t[% #0X]\n", data[field.GetIndex()])
-		return field.Type(), data[field.GetIndex()], nil
+		fmt.Printf("帧负载:\t\t\t[% #0X]\n", data[element.GetIndex()])
+		return element.Type(), data[element.GetIndex()], nil
 	}
-	return field
+	return element
 }

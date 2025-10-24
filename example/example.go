@@ -15,7 +15,7 @@ func main() {
 		{0x01},
 		{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01}}
 	//处理器构建器
-	builder := rot.NewBuilder()
+	builder := rot.NewProtocolBuilder()
 
 	//添加加密配置
 	cryptConfig := rot.NewCryptConfig()
@@ -29,11 +29,11 @@ func main() {
 	//配置编码器，用于主动发送数据或被处理器调用
 
 	//构建处理器
-	builder.AddFielder(rot.NewStarter([]byte{0x68})).
-		AddFielder(rot.NewDataLen(1)).
-		AddFielder(rot.NewCyptoFlag()).
-		AddFielder(rot.NewFuncCode()).
-		AddFielder(rot.NewDataZone())
+	builder.AddElement(rot.NewStarter([]byte{0x68})).
+		AddElement(rot.NewDataLen(1)).
+		AddElement(rot.NewCyptoFlag()).
+		AddElement(rot.NewFuncCode()).
+		AddElement(rot.NewPayload())
 	dataHander, err := builder.Build()
 	if err != nil {
 		fmt.Println("构建处理器失败:", err)
@@ -49,7 +49,7 @@ func main() {
 	}
 }
 
-func setHandlerConfig(builder *rot.Builder) {
+func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	handlerConfig := rot.NewHandlerConfig()
 	fh := new(rot.FucntionHandler)
 	fh.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
