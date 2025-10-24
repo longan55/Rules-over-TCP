@@ -7,20 +7,7 @@ import (
 	rot "github.com/longan55/Rules-over-TCP"
 )
 
-// 起始符 数据长度    数据域  校验
-// 0x68  1      N      crc16
-//
-// 数据单元格式 -》 按功能码解析
-//
-// 两种方式
-// 1.统一的Field结构体，统一的方法
-// 2.不同的结构体，同一个接口
-
 func main() {
-	TestSrc()
-}
-
-func TestSrc() {
 	//原始数据
 	var sourceData = [][]byte{{0x68},
 		{0x0F},
