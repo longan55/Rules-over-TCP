@@ -60,11 +60,15 @@ func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FucntionHandler {
 }
 
 func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
+	fmt.Println("协议元素组成部分：")
+	fmt.Println("------------------------------------------------------")
+	fmt.Printf("元素名称\t元素类型\t元素长度\t默认值\n")
 	//todo 起始码+长度码 的长度
 	for index, element := range duBuilder.du.elements {
 		element.SetIndex(index)
-		fmt.Printf("元素名称:%s, 元素类型:%v, 自身长度:%v\n", element.GetName(), element.Type(), element.Length())
+		fmt.Printf("%s\t%v\t\t%d\t\t%#x\n", element.GetName(), element.Type(), element.Length(), element.RealValue())
 	}
+	fmt.Println("------------------------------------------------------")
 	//TODO: 校验元素是否符合协议规范
 	return duBuilder.du, nil
 }
@@ -280,7 +284,7 @@ type ProtocolElementImpl struct {
 	index        int                                                                            //说明该元素的索引
 	Typ          ProtocolElementType                                                            //元素类型
 	name         string                                                                         //元素名字
-	selflength   int                                                                            //元素本身长度
+	selfLength   int                                                                            //元素本身长度
 	defaultValue []byte                                                                         //默认值
 	order        binary.ByteOrder                                                               //大小端
 	start        uint8                                                                          //开始索引: 该元素影响的元素区域的第一个元素索引
@@ -308,10 +312,10 @@ func (f *ProtocolElementImpl) RealValue() []byte {
 	return f.defaultValue
 }
 func (f *ProtocolElementImpl) SetLen(l int) {
-	f.selflength = l
+	f.selfLength = l
 }
 func (f *ProtocolElementImpl) Length() int {
-	return f.selflength
+	return f.selfLength
 }
 
 func (f *ProtocolElementImpl) GetOrder() binary.ByteOrder {
@@ -330,9 +334,9 @@ func (f *ProtocolElementImpl) Deal(data [][]byte) (ProtocolElementType, any, err
 func NewStarter(start []byte) ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Preamble,
-		name:         "帧首符",
+		name:         "帧 首 符",
 		defaultValue: start,
-		selflength:   len(start),
+		selfLength:   len(start),
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
 		if fullData == nil {
@@ -350,12 +354,12 @@ func NewStarter(start []byte) ProtocolElement {
 	return element
 }
 
-func NewDataLen(length int) ProtocolElement {
+func NewDataLen(selfLength int) ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Length,
-		name:         "帧长度",
+		name:         "帧 长 度",
 		defaultValue: nil,
-		selflength:   length,
+		selfLength:   selfLength,
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
 		if fullData == nil {
@@ -375,9 +379,9 @@ func NewDataLen(length int) ProtocolElement {
 func NewCyptoFlag() ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          EncryptionFlag,
-		name:         "加密标识",
+		name:         "加密标识 ",
 		defaultValue: []byte{0x01},
-		selflength:   1,
+		selfLength:   1,
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
 		if fullData == nil {
@@ -394,9 +398,9 @@ func NewCyptoFlag() ProtocolElement {
 func NewFuncCode() ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Function,
-		name:         "功能码",
+		name:         "功 能 码",
 		defaultValue: nil,
-		selflength:   1,
+		selfLength:   1,
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
 		if fullData == nil {
@@ -414,9 +418,9 @@ func NewFuncCode() ProtocolElement {
 func NewPayload() ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Payload,
-		name:         "帧负载",
+		name:         "帧 负 载",
 		defaultValue: nil,
-		selflength:   1,
+		selfLength:   1,
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
 		if fullData == nil {
