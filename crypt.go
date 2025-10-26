@@ -7,21 +7,21 @@ func CryptNone(data []byte) ([]byte, error) {
 }
 
 type CryptConfig struct {
-	cryptMap map[uint64]CryptFunc
+	cryptMap map[int]CryptFunc
 }
 
 func NewCryptConfig() *CryptConfig {
 	return &CryptConfig{
-		cryptMap: map[uint64]CryptFunc{
+		cryptMap: map[int]CryptFunc{
 			0: CryptNone,
 		},
 	}
 }
 
-func (cc *CryptConfig) AddCrypt(flag uint64, crypt CryptFunc) {
+func (cc *CryptConfig) AddCrypt(flag int, crypt CryptFunc) {
 	cc.cryptMap[flag] = crypt
 }
 
-func (cc *CryptConfig) Config() map[uint64]CryptFunc {
+func (cc *CryptConfig) GetCryptMap() map[int]CryptFunc {
 	return cc.cryptMap
 }

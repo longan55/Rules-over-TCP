@@ -37,7 +37,7 @@ func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolB
 }
 
 func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *ProtocolBuilder {
-	duBuilder.du.cryptLib = cryptConfig.Config()
+	duBuilder.du.cryptLib = cryptConfig.GetCryptMap()
 	return duBuilder
 }
 
@@ -72,7 +72,7 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 type Protocol interface {
 	AddHandler(fc FunctionCode, f *FucntionHandler)
 	Handle(ctx context.Context, conn net.Conn)
-	SetDataLength(length uint64)
+	SetDataLength(length int)
 	Parse(adu [][]byte) error
 	// Serialize(f *FucntionHandler) []byte
 }
@@ -82,11 +82,11 @@ var _ Protocol = (*ProtocolImpl)(nil)
 // dph 应用数据单元 结构体
 type ProtocolImpl struct {
 	//当前数据单元的 数据域长度
-	dataLength   uint64
+	dataLength   int
 	functionCode FunctionCode
 	//加密标志
-	encryptionFlag uint64
-	cryptLib       map[uint64]CryptFunc
+	encryptionFlag int
+	cryptLib       map[int]CryptFunc
 
 	conn net.Conn
 	//存储协议元素信息
@@ -139,14 +139,13 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 						startFlag = false
 					}
 				case Length:
-					dph.dataLength = a.(uint64)
+					dph.dataLength = a.(int)
 				case EncryptionFlag:
-					dph.encryptionFlag = a.(uint64)
+					dph.encryptionFlag = a.(int)
 				}
 				if !startFlag {
 					break
 				}
-				//将数据拼接
 				alldata = append(alldata, buf)
 			}
 			//第二次遍历elements, 解析数据单元
@@ -161,9 +160,9 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 				}
 				switch typ {
 				case Length:
-					dph.dataLength = a.(uint64)
+					dph.dataLength = a.(int)
 				case EncryptionFlag:
-					dph.encryptionFlag = a.(uint64)
+					dph.encryptionFlag = a.(int)
 				case Function:
 					dph.functionCode = a.(FunctionCode)
 				case Payload:
@@ -189,7 +188,7 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (dph *ProtocolImpl) SetDataLength(length uint64) {
+func (dph *ProtocolImpl) SetDataLength(length int) {
 	dph.dataLength = length
 }
 
@@ -210,9 +209,9 @@ func (dph *ProtocolImpl) Parse(alldata [][]byte) error {
 		}
 		switch typ {
 		case Length:
-			dph.dataLength = a.(uint64)
+			dph.dataLength = a.(int)
 		case EncryptionFlag:
-			dph.encryptionFlag = a.(uint64)
+			dph.encryptionFlag = a.(int)
 		case Function:
 			dph.functionCode = a.(FunctionCode)
 		case Payload:
@@ -242,34 +241,6 @@ func (dph *ProtocolImpl) Info() {
 	}
 }
 
-// Debug 解析数据
-func (dph *ProtocolImpl) Debug(r io.Reader, source []byte) {
-	// 起始符 只需要判断是否相等
-	// 数据域长度 要传给数据域元素作为长度
-	// 加密标志 是否对指定元素的值进行加密或解密
-	// 校验码 是否对指定元素进行校验计算
-	// offset := 0
-	// //遍历所有元素
-	// for _, element := range dph.elements {
-	// 	//根据元素element获取对应数据切片
-	// 	data := source[offset : offset+element.Length()]
-	// 	//更新偏移量
-	// 	offset += element.Length()
-	// 	//debug打印元素
-	// 	if element.GetScale() == 0 {
-	// 		fmt.Printf("[%s] = %0d", element.GetName(), data)
-	// 	} else {
-	// 		fmt.Printf("[%s] = %0x", element.GetName(), data)
-	// 	}
-
-	// 	//处理方法
-	// 	_, err := element.Deal(data)
-	// 	if err != nil { //log.Println("数据解析出错! [error]:", err)
-	// 		fmt.Printf("数据解析出错! [error]: %v\n", err)
-	// 	}
-	// }
-}
-
 // ProtocolElement 元素接口
 type ProtocolElement interface {
 	GetIndex() int
@@ -278,9 +249,9 @@ type ProtocolElement interface {
 	Type() ProtocolElementType
 	RealValue() []byte
 	Length() int
-	GetScale() uint8
+	// GetScale() uint8
 	GetOrder() binary.ByteOrder
-	GetRange() (start, end uint8)
+	// GetRange() (start, end uint8)
 	Deal([][]byte) (ProtocolElementType, any, error)
 }
 
@@ -306,19 +277,15 @@ var _ ProtocolElement = (*ProtocolElementImpl)(nil)
 // ProtocolElementImpl 基础元素结构体
 type ProtocolElementImpl struct {
 	//元数据: 存储该元素的元数据(用于描述说明)
-	index    int                                                                            //说明该元素的索引
-	Typ      ProtocolElementType                                                            //元素类型
-	name     string                                                                         //元素名字
-	scale    uint8                                                                          // 1十六进制，0十进制
-	len      int                                                                            //元素本身长度
-	defaultV []byte                                                                         //默认值
-	order    binary.ByteOrder                                                               //大小端
-	start    uint8                                                                          //开始索引: 该元素影响的元素区域的第一个元素索引
-	end      uint8                                                                          //结束索引: 该元素影响的元素区域的最后一个元素索引
-	DealFunc func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
-	//临时数据: 存储当前adu的数据
-	// realData   []byte
-	// parsedData any
+	index        int                                                                            //说明该元素的索引
+	Typ          ProtocolElementType                                                            //元素类型
+	name         string                                                                         //元素名字
+	selflength   int                                                                            //元素本身长度
+	defaultValue []byte                                                                         //默认值
+	order        binary.ByteOrder                                                               //大小端
+	start        uint8                                                                          //开始索引: 该元素影响的元素区域的第一个元素索引
+	end          uint8                                                                          //结束索引: 该元素影响的元素区域的最后一个元素索引
+	DealFunc     func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
 }
 
 func (f *ProtocolElementImpl) GetIndex() int {
@@ -338,17 +305,13 @@ func (f *ProtocolElementImpl) Type() ProtocolElementType {
 }
 
 func (f *ProtocolElementImpl) RealValue() []byte {
-	return f.defaultV
+	return f.defaultValue
 }
 func (f *ProtocolElementImpl) SetLen(l int) {
-	f.len = l
+	f.selflength = l
 }
 func (f *ProtocolElementImpl) Length() int {
-	return f.len
-}
-
-func (f *ProtocolElementImpl) GetScale() uint8 {
-	return f.scale
+	return f.selflength
 }
 
 func (f *ProtocolElementImpl) GetOrder() binary.ByteOrder {
@@ -366,22 +329,22 @@ func (f *ProtocolElementImpl) Deal(data [][]byte) (ProtocolElementType, any, err
 // 起始符
 func NewStarter(start []byte) ProtocolElement {
 	element := &ProtocolElementImpl{
-		Typ:      Preamble,
-		name:     "帧首符",
-		defaultV: start,
-		len:      len(start),
+		Typ:          Preamble,
+		name:         "帧首符",
+		defaultValue: start,
+		selflength:   len(start),
 	}
-	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
-		if data == nil {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < element.Length() {
+		if len(fullData) < element.Length() {
 			return element.Type(), nil, errors.New("数据长度小于起始符长度")
 		}
-		if !bytes.Equal(data[0][:element.Length()], element.RealValue()) {
-			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.RealValue(), data[0][:element.Length()])
+		if !bytes.Equal(fullData[0][:element.Length()], element.RealValue()) {
+			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.RealValue(), fullData[0][:element.Length()])
 		}
-		fmt.Printf("起始符:\t\t\t[%#0X]\n", data[0][:element.Length()])
+		fmt.Printf("起始符:\t\t\t[%#0X]\n", fullData[0][:element.Length()])
 		return element.Type(), nil, nil
 	}
 	return element
@@ -389,88 +352,81 @@ func NewStarter(start []byte) ProtocolElement {
 
 func NewDataLen(length int) ProtocolElement {
 	element := &ProtocolElementImpl{
-		Typ:      Length,
-		name:     "帧长度",
-		defaultV: nil,
-		len:      length,
+		Typ:          Length,
+		name:         "帧长度",
+		defaultValue: nil,
+		selflength:   length,
 	}
-	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
-		if data == nil {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < element.Length() {
+		if len(fullData) < element.Length() {
 			return element.Type(), nil, errors.New("数据长度小于帧长度字段长度")
 		}
-		lenData := data[element.GetIndex()]
-		u64, err := BIN2Uint64(lenData, element.GetOrder())
-		if err != nil {
-			return element.Type(), nil, err
-		}
-		fmt.Printf("帧长度:\t\t\t[%d]\n", u64)
-		return element.Type(), u64, nil
+		data := fullData[element.GetIndex()]
+		length := Bin2Int(data, element.GetOrder())
+		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
+		return element.Type(), length, nil
 	}
 	return element
 }
 
-// TODO: 加密标志，设置加密算法库。
 func NewCyptoFlag() ProtocolElement {
 	element := &ProtocolElementImpl{
-		Typ:      EncryptionFlag,
-		name:     "加密标识",
-		defaultV: []byte{0x01},
-		len:      1,
+		Typ:          EncryptionFlag,
+		name:         "加密标识",
+		defaultValue: []byte{0x01},
+		selflength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
-		if data == nil {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		flagdata := data[element.GetIndex()]
-		u64, err := BIN2Uint64(flagdata, element.GetOrder())
-		if err != nil {
-			return element.Type(), false, err
-		}
-		fmt.Printf("加密标识:\t\t[%#0X]\n", data[element.GetIndex()])
-		return element.Type(), u64, nil
+		flagdata := fullData[element.GetIndex()]
+		flag := Bin2Int(flagdata, element.GetOrder())
+		fmt.Printf("加密标识:\t\t[%#0X]\n", fullData[element.GetIndex()])
+		return element.Type(), flag, nil
 	}
 	return element
 }
 
 func NewFuncCode() ProtocolElement {
 	element := &ProtocolElementImpl{
-		Typ:      Function,
-		name:     "功能码",
-		defaultV: nil,
-		len:      1,
+		Typ:          Function,
+		name:         "功能码",
+		defaultValue: nil,
+		selflength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
-		if data == nil {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < element.Length() {
+		if len(fullData) < element.Length() {
 			return element.Type(), nil, errors.New("数据长度小于功能码字段长度")
 		}
-		fmt.Printf("功能码:\t\t\t[%#0X]\n", data[element.GetIndex()])
-		fc := FunctionCode(data[element.GetIndex()][0])
-		return element.Type(), fc, nil
+		fmt.Printf("功能码:\t\t\t[%#0X]\n", fullData[element.GetIndex()])
+		functionCode := FunctionCode(fullData[element.GetIndex()][0])
+		return element.Type(), functionCode, nil
 	}
 	return element
 }
 func NewPayload() ProtocolElement {
 	element := &ProtocolElementImpl{
-		Typ:      Payload,
-		name:     "帧负载",
-		defaultV: nil,
-		len:      1,
+		Typ:          Payload,
+		name:         "帧负载",
+		defaultValue: nil,
+		selflength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) {
-		if data == nil {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(data) < element.Length() {
+		if len(fullData) < element.Length() {
 			return element.Type(), nil, errors.New("数据长度小于帧负载字段长度")
 		}
-		fmt.Printf("帧负载:\t\t\t[% #0X]\n", data[element.GetIndex()])
-		return element.Type(), data[element.GetIndex()], nil
+		fmt.Printf("帧负载:\t\t\t[% #0X]\n", fullData[element.GetIndex()])
+		return element.Type(), fullData[element.GetIndex()], nil
 	}
 	return element
 }
