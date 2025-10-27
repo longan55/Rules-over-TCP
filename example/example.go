@@ -13,7 +13,8 @@ func main() {
 		{0x0F},
 		{0x00},
 		{0x01},
-		{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01}}
+		{0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01},
+		{0xC0, 0xA7}}
 	//处理器构建器
 	builder := rot.NewProtocolBuilder()
 
@@ -33,7 +34,8 @@ func main() {
 		AddElement(rot.NewDataLen(1)).
 		AddElement(rot.NewCyptoFlag()).
 		AddElement(rot.NewFuncCode()).
-		AddElement(rot.NewPayload())
+		AddElement(rot.NewPayload()).
+		AddElement(rot.NewCheckSum(1))
 	dataHander, err := builder.Build()
 	if err != nil {
 		fmt.Println("构建处理器失败:", err)

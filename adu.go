@@ -257,6 +257,7 @@ type ProtocolElement interface {
 	GetOrder() binary.ByteOrder
 	// GetRange() (start, end uint8)
 	Deal([][]byte) (ProtocolElementType, any, error)
+	ChecksumType() uint8
 }
 
 type ProtocolElementType byte
@@ -290,6 +291,7 @@ type ProtocolElementImpl struct {
 	start        uint8                                                                          //开始索引: 该元素影响的元素区域的第一个元素索引
 	end          uint8                                                                          //结束索引: 该元素影响的元素区域的最后一个元素索引
 	DealFunc     func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
+	checksumType uint8
 }
 
 func (f *ProtocolElementImpl) GetIndex() int {
@@ -328,6 +330,10 @@ func (f *ProtocolElementImpl) GetRange() (start, end uint8) {
 
 func (f *ProtocolElementImpl) Deal(data [][]byte) (ProtocolElementType, any, error) {
 	return f.DealFunc(f, data)
+}
+
+func (f *ProtocolElementImpl) ChecksumType() uint8 {
+	return f.checksumType
 }
 
 // 起始符
@@ -431,6 +437,36 @@ func NewPayload() ProtocolElement {
 		}
 		fmt.Printf("帧负载:\t\t\t[% #0X]\n", fullData[element.GetIndex()])
 		return element.Type(), fullData[element.GetIndex()], nil
+	}
+	return element
+}
+
+func NewCheckSum(checksumType uint8) ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:          Checksum,
+		name:         "校验码",
+		defaultValue: nil,
+		selfLength:   1,
+		checksumType: checksumType,
+	}
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
+			return element.Type(), nil, errors.New("数据为空")
+		}
+		if len(fullData) < element.Length() {
+			return element.Type(), nil, errors.New("数据长度小于校验码字段长度")
+		}
+		fmt.Printf("校 验 码:\t\t\t[%#0X]\n", fullData[element.GetIndex()])
+		checksum0 := fullData[element.GetIndex()]
+		//将各切片连接为一个切片
+		full := bytes.Join(fullData, nil)
+		fmt.Println("full:", full)
+		checksum := CheckSum(element.ChecksumType(), full)
+		//FIXME:校验码计算结果与校验码字段不一致
+		if !bytes.Equal(checksum, checksum0) {
+			return element.Type(), nil, fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum0, checksum)
+		}
+		return element.Type(), checksum, nil
 	}
 	return element
 }

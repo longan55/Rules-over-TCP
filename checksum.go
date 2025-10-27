@@ -1,6 +1,25 @@
 package rot
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+)
+
+var checksumMap = map[uint8]func([]byte) []byte{
+	1: ModBusCRC,
+}
+
+func RegisterChecksum(checksumType uint8, checksumFunc func([]byte) []byte) {
+	checksumMap[checksumType] = checksumFunc
+}
+
+func CheckSum(checksumType uint8, data []byte) []byte {
+	fmt.Printf("校验码类型:%d,数据:%X\n", checksumType, data)
+	if checksumFunc, ok := checksumMap[checksumType]; ok {
+		return checksumFunc(data)
+	}
+	return nil
+}
 
 func ModBusCRC(b []byte) []byte {
 	var crc16 uint16
