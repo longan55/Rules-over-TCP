@@ -441,12 +441,12 @@ func NewPayload() ProtocolElement {
 	return element
 }
 
-func NewCheckSum(checksumType uint8) ProtocolElement {
+func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Checksum,
-		name:         "校验码",
+		name:         "校 验 码",
 		defaultValue: nil,
-		selfLength:   1,
+		selfLength:   selfLength,
 		checksumType: checksumType,
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
@@ -456,16 +456,16 @@ func NewCheckSum(checksumType uint8) ProtocolElement {
 		if len(fullData) < element.Length() {
 			return element.Type(), nil, errors.New("数据长度小于校验码字段长度")
 		}
-		fmt.Printf("校 验 码:\t\t\t[%#0X]\n", fullData[element.GetIndex()])
+		fmt.Printf("校 验 码:\t\t[%#0X]\n", fullData[element.GetIndex()])
 		checksum0 := fullData[element.GetIndex()]
 		//将各切片连接为一个切片
-		full := bytes.Join(fullData, nil)
-		fmt.Println("full:", full)
+		full := bytes.Join(fullData[:element.GetIndex()], nil)
 		checksum := CheckSum(element.ChecksumType(), full)
 		//FIXME:校验码计算结果与校验码字段不一致
 		if !bytes.Equal(checksum, checksum0) {
-			return element.Type(), nil, fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum0, checksum)
+			return element.Type(), nil, fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum, checksum0)
 		}
+		fmt.Printf("校验码类型:%d,计算校验码:% #0X,校验通过\n", element.ChecksumType(), checksum)
 		return element.Type(), checksum, nil
 	}
 	return element

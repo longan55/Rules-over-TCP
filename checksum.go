@@ -2,7 +2,6 @@ package rot
 
 import (
 	"encoding/binary"
-	"fmt"
 )
 
 var checksumMap = map[uint8]func([]byte) []byte{
@@ -14,7 +13,6 @@ func RegisterChecksum(checksumType uint8, checksumFunc func([]byte) []byte) {
 }
 
 func CheckSum(checksumType uint8, data []byte) []byte {
-	fmt.Printf("校验码类型:%d,数据:%X\n", checksumType, data)
 	if checksumFunc, ok := checksumMap[checksumType]; ok {
 		return checksumFunc(data)
 	}
