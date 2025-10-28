@@ -5,7 +5,7 @@ import (
 )
 
 var checksumMap = map[uint8]func([]byte) []byte{
-	1: ModBusCRC,
+	0: ModBusCRC,
 }
 
 func RegisterChecksum(checksumType uint8, checksumFunc func([]byte) []byte) {

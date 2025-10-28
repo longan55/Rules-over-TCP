@@ -153,6 +153,7 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 				alldata = append(alldata, buf)
 			}
 			//第二次遍历elements, 解析数据单元
+			fmt.Println("FULLDATA: ", alldata)
 			for _, element := range dph.elements {
 				if element.Type() == Preamble {
 					continue
@@ -348,9 +349,9 @@ func NewStarter(start []byte) ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(fullData) < element.Length() {
-			return element.Type(), nil, errors.New("数据长度小于起始符长度")
-		}
+		// if len(fullData) < element.Length() {
+		// 	return element.Type(), nil, errors.New("数据长度小于起始符长度")
+		// }
 		if !bytes.Equal(fullData[0][:element.Length()], element.RealValue()) {
 			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.RealValue(), fullData[0][:element.Length()])
 		}
@@ -371,9 +372,9 @@ func NewDataLen(selfLength int) ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(fullData) < element.Length() {
-			return element.Type(), nil, errors.New("数据长度小于帧长度字段长度")
-		}
+		// if len(fullData) < element.Length() {
+		// 	return element.Type(), nil, errors.New("数据长度小于帧长度字段长度")
+		// }
 		data := fullData[element.GetIndex()]
 		length := Bin2Int(data, element.GetOrder())
 		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
@@ -412,9 +413,9 @@ func NewFuncCode() ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(fullData) < element.Length() {
-			return element.Type(), nil, errors.New("数据长度小于功能码字段长度")
-		}
+		// if len(fullData) < element.Length() {
+		// 	return element.Type(), nil, errors.New("数据长度小于功能码字段长度")
+		// }
 		fmt.Printf("功能码:\t\t\t[%#0X]\n", fullData[element.GetIndex()])
 		functionCode := FunctionCode(fullData[element.GetIndex()][0])
 		return element.Type(), functionCode, nil
@@ -432,9 +433,9 @@ func NewPayload() ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(fullData) < element.Length() {
-			return element.Type(), nil, errors.New("数据长度小于帧负载字段长度")
-		}
+		// if len(fullData) < element.Length() {
+		// 	return element.Type(), nil, errors.New("数据长度小于帧负载字段长度")
+		// }
 		fmt.Printf("帧负载:\t\t\t[% #0X]\n", fullData[element.GetIndex()])
 		return element.Type(), fullData[element.GetIndex()], nil
 	}
@@ -453,15 +454,14 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if len(fullData) < element.Length() {
-			return element.Type(), nil, errors.New("数据长度小于校验码字段长度")
-		}
+		// if len(fullData) < element.Length() {
+		// 	return element.Type(), nil, errors.New("数据长度小于校验码字段长度")
+		// }
 		fmt.Printf("校 验 码:\t\t[%#0X]\n", fullData[element.GetIndex()])
 		checksum0 := fullData[element.GetIndex()]
 		//将各切片连接为一个切片
 		full := bytes.Join(fullData[:element.GetIndex()], nil)
 		checksum := CheckSum(element.ChecksumType(), full)
-		//FIXME:校验码计算结果与校验码字段不一致
 		if !bytes.Equal(checksum, checksum0) {
 			return element.Type(), nil, fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum, checksum0)
 		}
