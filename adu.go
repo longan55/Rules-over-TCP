@@ -176,6 +176,7 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 					var err error
 					data, err = dph.cryptLib[dph.encryptionFlag](data)
 					if err != nil {
+						fmt.Println("解密失败:", err)
 						return
 					}
 					hd, ok := dph.handlerMap[dph.functionCode]
@@ -185,6 +186,7 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 					}
 					err = hd.Handle(data)
 					if err != nil {
+						fmt.Println("处理数据失败:", err)
 						return
 					}
 				}
@@ -463,7 +465,7 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		fmt.Printf("校 验 码:\t\t[%#0X]\n", fullData[element.GetIndex()])
 		checksum0 := fullData[element.GetIndex()]
 		//将各切片连接为一个切片
-		full := bytes.Join(fullData[:element.GetIndex()], nil)
+		full := bytes.Join(fullData[2:element.GetIndex()], nil)
 		checksum := CheckSum(element.ChecksumType(), full)
 		if !bytes.Equal(checksum, checksum0) {
 			return element.Type(), nil, fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum, checksum0)

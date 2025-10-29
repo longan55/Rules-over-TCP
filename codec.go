@@ -306,6 +306,7 @@ func (bcd *BCD) Decode(data []byte) any {
 }
 
 func (bcd *BCD) ExplainedValue(src any) any {
+	//FIXME:runtime error: invalid memory address or nil pointer dereference
 	return bcd.dataTyper.ExplainedValue(src)
 }
 
