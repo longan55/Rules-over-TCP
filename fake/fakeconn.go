@@ -10,23 +10,29 @@ import (
 
 // FakeConn 实现net.Conn接口，用于测试
 type FakeConn struct {
-	reader *bytes.Reader
+	buffer *bytes.Buffer // 使用buffer代替reader，支持数据追加
 	writer bytes.Buffer
 	closed bool
 }
 
 // NewFakeConn 创建一个新的FakeConn实例
-func NewFakeConn(data []byte) *FakeConn {
+func NewFakeConn() *FakeConn {
+	buffer := bytes.NewBuffer([]byte{})
 	return &FakeConn{
-		reader: bytes.NewReader(data),
+		buffer: buffer,
 		writer: bytes.Buffer{},
 		closed: false,
 	}
 }
 
-// SetData 设置要读取的数据
+// SetData 追加数据到读取缓冲区，不覆盖现有数据
 func (c *FakeConn) SetData(data []byte) {
-	c.reader = bytes.NewReader(data)
+	c.buffer.Write(data)
+}
+
+// ClearData 清空读取缓冲区
+func (c *FakeConn) ClearData() {
+	c.buffer.Reset()
 }
 
 // Read 实现net.Conn接口的Read方法
@@ -34,7 +40,7 @@ func (c *FakeConn) Read(b []byte) (n int, err error) {
 	if c.closed {
 		return 0, io.EOF
 	}
-	return c.reader.Read(b)
+	return c.buffer.Read(b)
 }
 
 // Write 实现net.Conn接口的Write方法

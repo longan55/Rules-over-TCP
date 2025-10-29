@@ -85,6 +85,7 @@ var _ Protocol = (*ProtocolImpl)(nil)
 
 // dph 应用数据单元 结构体
 type ProtocolImpl struct {
+	counts uint64
 	//当前数据单元的 数据域长度
 	dataLength   int
 	functionCode FunctionCode
@@ -115,6 +116,7 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 			//停止读取
 			return
 		default:
+			fmt.Printf("[第%v个数据单元解析开始]\n", dph.counts)
 			alldata := make([][]byte, 0, len(dph.elements))
 			//第一遍遍历elements, 读取一个完整的数据单元
 			for _, element := range dph.elements {
@@ -187,6 +189,9 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 					}
 				}
 			}
+			fmt.Printf("[第%v个数据单元解析完成]\n", dph.counts)
+			fmt.Println()
+			dph.counts++
 		}
 	}
 }
