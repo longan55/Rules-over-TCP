@@ -125,13 +125,13 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 				} else {
 					buf = make([]byte, dph.dataLength)
 				}
-				//读取
 				_, err := io.ReadFull(dph.conn, buf)
 				if err != nil {
 					fmt.Println("读取数据失败:", err)
 					return
 				}
 
+				alldata = append(alldata, buf)
 				//is start with correct code?
 				startFlag := true
 
@@ -150,7 +150,6 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 				if !startFlag {
 					break
 				}
-				alldata = append(alldata, buf)
 			}
 			//第二次遍历elements, 解析数据单元
 			fmt.Println("FULLDATA: ", alldata)
@@ -188,7 +187,6 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 					}
 				}
 			}
-			fmt.Println("读取数据:", alldata)
 		}
 	}
 }
