@@ -433,9 +433,11 @@ func (ascii *ASCII) GetByteLength() int {
 	return ascii.byteLength
 }
 func (ascii *ASCII) String() *ASCIIString {
-	return &ASCIIString{
+	temp := &ASCIIString{
 		encoder: ascii,
 	}
+	ascii.dataTyper = temp
+	return temp
 }
 
 func (ascii *ASCII) ExplainedValue(src any) any {
@@ -444,6 +446,17 @@ func (ascii *ASCII) ExplainedValue(src any) any {
 
 type ASCIIString struct {
 	encoder DecodeType
+}
+
+var _ DataTyper = (*ASCIIString)(nil)
+
+func (ascii *ASCIIString) Value(src any) any {
+	srcStr := src.(string)
+	return srcStr
+}
+
+func (ascii *ASCIIString) ExplainedValue(src any) any {
+	return ascii.Value(src)
 }
 
 func (ascii *ASCIIString) SourceValue(data []byte) (str string) {

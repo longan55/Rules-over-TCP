@@ -42,6 +42,7 @@ func main() {
 	fakeConn := fake.NewFakeConn()
 	fakeConn.SetData([]byte{0x68, 0x0F, 0x00, 0x01, 0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01, 0x1a, 0x40})
 	fakeConn.SetData([]byte{0x68, 0x0E, 0x00, 0x02, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78, 0xbd, 0x09})
+	fakeConn.SetData([]byte{0x68, 0x06, 0x00, 0x03, 0x30, 0x31, 0x32, 0x33, 0x4f, 0xa1})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -81,8 +82,16 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		fmt.Println("parsedData:", parsedData)
 		return nil
 	})
+	//3. ASCII编码，默认解释为字符串，还可以解释为整数或浮点数
+	fh2 := new(rot.FucntionHandler)
+	fh2.NewDecoder("ascii", binary.BigEndian).ASCII().SetByteLength(4).String()
+	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
+		fmt.Println("parsedData:", parsedData)
+		return nil
+	})
 	//end
 	handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)
 	handlerConfig.AddHandler(rot.FunctionCode(0x02), fh1)
+	handlerConfig.AddHandler(rot.FunctionCode(0x03), fh2)
 	builder.AddHandlerConfig(handlerConfig)
 }
