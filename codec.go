@@ -60,6 +60,7 @@ func (impl *DecoderImpl) CP56TIME2A() *CP56TIME2A {
 	return &cp56time2a
 }
 
+// BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
 type BIN struct {
 	decoder    *DecoderImpl
 	dataTyper  DataTyper
@@ -119,10 +120,12 @@ func (bin *BIN) Float1() *BINFloat {
 }
 
 func (bin *BIN) String1() *BINString {
-	return &BINString{
+	temp := &BINString{
 		encoder: bin,
 		order:   bin.order,
 	}
+	bin.dataTyper = temp
+	return temp
 }
 
 type BINInteger struct {
@@ -231,11 +234,6 @@ func (f *BINFloat) ExplainedValue(src any) any {
 	return src
 }
 
-func (s *BINString) ExplainedValue(src any) any {
-	srcStr := src.(string)
-	return srcStr
-}
-
 type BINString struct {
 	encoder DecodeType
 	order   binary.ByteOrder
@@ -248,31 +246,12 @@ func (s *BINString) Value(src any) any {
 	return strconv.Itoa(srcStr)
 }
 
-// ////////
-// /////////
-// /////////
-// ////////
-// ////////
-// ////////
-// /////////
-// /////////
-// ////////
-// ////////
-// ////////
-// /////////
-// /////////
-// ////////
-// ////////
-// ////////
-// /////////
-// /////////
-// ////////
-// ////////
-// ////////
-// /////////
-// /////////
-// ////////
-// ////////
+func (s *BINString) ExplainedValue(src any) any {
+	srcStr := src.(string)
+	return srcStr
+}
+
+// BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
 type BCD struct {
 	decoder    *DecoderImpl
 	order      binary.ByteOrder
@@ -306,7 +285,6 @@ func (bcd *BCD) Decode(data []byte) any {
 }
 
 func (bcd *BCD) ExplainedValue(src any) any {
-	//FIXME:runtime error: invalid memory address or nil pointer dereference
 	return bcd.dataTyper.ExplainedValue(src)
 }
 
@@ -319,10 +297,12 @@ func (bcd *BCD) GetByteLength() int {
 	return bcd.byteLength
 }
 func (bcd *BCD) Integer() *BCDInteger {
-	return &BCDInteger{
+	temp := &BCDInteger{
 		encoder: bcd,
 		// order:   bcd.order,
 	}
+	bcd.dataTyper = temp
+	return temp
 }
 
 type BCDInteger struct {
@@ -356,9 +336,11 @@ func (bcdi *BCDInteger) SourceValue(data []byte) int {
 }
 
 func (bcd *BCD) Float() *BCDFloat {
-	return &BCDFloat{
+	temp := &BCDFloat{
 		encoder: bcd,
 	}
+	bcd.dataTyper = temp
+	return temp
 }
 
 type BCDFloat struct {
@@ -378,16 +360,10 @@ func (bcdf *BCDFloat) DecimalPlace(decimal int) *BCDFloat {
 }
 
 func (bcdf *BCDFloat) Value(src any) any {
-	srcFloat := src.(int)
-	return float64(srcFloat) / math.Pow10(bcdf.decimal)
-}
-
-func (bcdf *BCDFloat) SourceValue(data []byte) float64 {
-	temp := ""
-	bcdf.encoder.decode(data, &temp)
-
+	srcFloat := src.(string)
+	// return float64(srcFloat) / math.Pow10(bcdf.decimal)
 	// 先将字符串转换为浮点数
-	source, err := strconv.ParseFloat(temp, 64)
+	source, err := strconv.ParseFloat(srcFloat, 64)
 	if err != nil {
 		return 0
 	}

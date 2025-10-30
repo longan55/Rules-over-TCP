@@ -41,7 +41,7 @@ func main() {
 	// 创建FakeConn并设置测试数据
 	fakeConn := fake.NewFakeConn()
 	fakeConn.SetData([]byte{0x68, 0x0F, 0x00, 0x01, 0x7F, 0xFF, 0xFF, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x12, 0x34, 0x12, 0x34, 0x01, 0x1a, 0x40})
-	fakeConn.SetData([]byte{0x68, 0x06, 0x00, 0x02, 0x12, 0x34, 0x56, 0x78, 0x02, 0xef})
+	fakeConn.SetData([]byte{0x68, 0x0E, 0x00, 0x02, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78, 0xbd, 0x09})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -55,7 +55,7 @@ func main() {
 
 func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	handlerConfig := rot.NewHandlerConfig()
-	//1.
+	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
 	fh := new(rot.FucntionHandler)
 	fh.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	fh.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
@@ -71,9 +71,12 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		fmt.Println("parsedData:", parsedData)
 		return nil
 	})
-	//2.
+	//2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
 	fh1 := new(rot.FucntionHandler)
 	fh1.NewDecoder("code", binary.BigEndian).BCD().SetByteLength(4).String()
+	fh1.NewDecoder("price", binary.BigEndian).BCD().SetByteLength(4).Float().DecimalPlace(4)
+	fh1.NewDecoder("intPrice", binary.BigEndian).BCD().SetByteLength(4).Integer()
+
 	fh1.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
 		return nil
