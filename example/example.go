@@ -82,7 +82,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		fmt.Println("parsedData:", parsedData)
 		return nil
 	})
-	//3. ASCII编码，默认解释为字符串，还可以解释为整数或浮点数
+	//3. ASCII编码，仅解释为字符串
 	fh2 := new(rot.FucntionHandler)
 	fh2.NewDecoder("ascii", binary.BigEndian).ASCII().SetByteLength(4).String()
 	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {

@@ -77,7 +77,7 @@ type Protocol interface {
 	AddHandler(fc FunctionCode, f *FucntionHandler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length int)
-	Parse(adu [][]byte) error
+	//Parse(adu [][]byte) error
 	// Serialize(f *FucntionHandler) []byte
 }
 
@@ -122,10 +122,10 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 			for _, element := range dph.elements {
 				//定义好合适长度的buf,接收该元素数据
 				var buf []byte
-				if element.Type() != Payload {
-					buf = make([]byte, element.Length())
-				} else {
+				if element.Type() == Payload {
 					buf = make([]byte, dph.dataLength-2)
+				} else {
+					buf = make([]byte, element.Length())
 				}
 				_, err := io.ReadFull(dph.conn, buf)
 				if err != nil {
@@ -134,46 +134,47 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 				}
 
 				alldata = append(alldata, buf)
-				//is start with correct code?
-				startFlag := true
-
-				typ, a, err := element.Deal(alldata)
-				switch typ {
-				case Preamble:
+				if element.Type() == Preamble {
+					_, _, err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("起始符校验失败: ", err)
-						startFlag = false
+						break
 					}
-				case Length:
+				} else if element.Type() == Length {
+					_, a, err := element.Deal(alldata)
+					if err != nil {
+						fmt.Println("数据长度校验失败: ", err)
+						break
+					}
 					dph.dataLength = a.(int)
-				case EncryptionFlag:
-					dph.encryptionFlag = a.(int)
-				}
-				if !startFlag {
-					break
 				}
 			}
 			//第二次遍历elements, 解析数据单元
-			fmt.Println("FULLDATA: ", alldata)
 			for _, element := range dph.elements {
-				if element.Type() == Preamble {
+				switch element.Type() {
+				case Preamble, Length:
 					continue
-				}
-				typ, a, err := element.Deal(alldata)
-				if err != nil {
-					fmt.Println("数据解析失败:", err)
-					break
-				}
-				switch typ {
-				case Length:
-					dph.dataLength = a.(int)
 				case EncryptionFlag:
+					_, a, err := element.Deal(alldata)
+					if err != nil {
+						fmt.Println("加密标志校验失败: ", err)
+						break
+					}
 					dph.encryptionFlag = a.(int)
 				case Function:
+					_, a, err := element.Deal(alldata)
+					if err != nil {
+						fmt.Println("功能码校验失败: ", err)
+						break
+					}
 					dph.functionCode = a.(FunctionCode)
 				case Payload:
+					_, a, err := element.Deal(alldata)
+					if err != nil {
+						fmt.Println("数据解析失败:", err)
+						break
+					}
 					data := a.([]byte)
-					var err error
 					data, err = dph.cryptLib[dph.encryptionFlag](data)
 					if err != nil {
 						fmt.Println("解密失败:", err)
@@ -200,48 +201,6 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 
 func (dph *ProtocolImpl) SetDataLength(length int) {
 	dph.dataLength = length
-}
-
-func (dph *ProtocolImpl) Parse(alldata [][]byte) error {
-	fmt.Println("解析前数据:", alldata)
-	for _, element := range dph.elements {
-		// if element.Type() == START {
-		// 	fmt.Println("起始符:", alldata[element.GetIndex()])
-		// 	continue
-		// }
-		// if element.Type() == Preamble {
-		// 	continue
-		// }
-		typ, a, err := element.Deal(alldata)
-		if err != nil {
-			fmt.Println("数据解析失败:", err)
-			break
-		}
-		switch typ {
-		case Length:
-			dph.dataLength = a.(int)
-		case EncryptionFlag:
-			dph.encryptionFlag = a.(int)
-		case Function:
-			dph.functionCode = a.(FunctionCode)
-		case Payload:
-			data := a.([]byte)
-			var err error
-			data, err = dph.cryptLib[dph.encryptionFlag](data)
-			if err != nil {
-				return err
-			}
-			hd, ok := dph.handlerMap[dph.functionCode]
-			if !ok {
-				return fmt.Errorf("未注册功能码:%v", dph.functionCode)
-			}
-			err = hd.Handle(data)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (dph *ProtocolImpl) Info() {
