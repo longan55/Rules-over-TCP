@@ -125,7 +125,7 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 				if element.Type() != Payload {
 					buf = make([]byte, element.Length())
 				} else {
-					buf = make([]byte, dph.dataLength)
+					buf = make([]byte, dph.dataLength-2)
 				}
 				_, err := io.ReadFull(dph.conn, buf)
 				if err != nil {
@@ -462,7 +462,7 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		// if len(fullData) < element.Length() {
 		// 	return element.Type(), nil, errors.New("数据长度小于校验码字段长度")
 		// }
-		fmt.Printf("校 验 码:\t\t[%#0X]\n", fullData[element.GetIndex()])
+		fmt.Printf("校 验 码:\t\t[% #0X]\n", fullData[element.GetIndex()])
 		checksum0 := fullData[element.GetIndex()]
 		//将各切片连接为一个切片
 		full := bytes.Join(fullData[2:element.GetIndex()], nil)

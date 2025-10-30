@@ -410,18 +410,25 @@ func (bcdf *BCDFloat) SourceValue(data []byte) float64 {
 }
 
 func (bcd *BCD) String() *BCDString {
-	return &BCDString{
+	temp := &BCDString{
 		encoder: bcd,
 	}
+	bcd.dataTyper = temp
+	return temp
 }
 
 type BCDString struct {
 	encoder DecodeType
 }
 
-func (bcds *BCDString) SourceValue(data []byte) (str string) {
-	bcds.encoder.decode(data, &str)
-	return
+func (bcds *BCDString) Value(src any) any {
+	srcStr := src.(string)
+	return srcStr
+}
+
+func (bcds *BCDString) ExplainedValue(src any) any {
+	srcStr := src.(string)
+	return srcStr
 }
 
 type ASCII struct {
