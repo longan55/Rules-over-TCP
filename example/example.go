@@ -57,7 +57,7 @@ func main() {
 func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	handlerConfig := rot.NewHandlerConfig()
 	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
-	fh := new(rot.FucntionHandler)
+	fh := new(rot.FunctionHandler)
 	fh.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	fh.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	fh.NewDecoder("c", binary.BigEndian).BIN().SetByteLength(2).Integer()
@@ -73,7 +73,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		return nil
 	})
 	//2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
-	fh1 := new(rot.FucntionHandler)
+	fh1 := new(rot.FunctionHandler)
 	fh1.NewDecoder("code", binary.BigEndian).BCD().SetByteLength(4).String()
 	fh1.NewDecoder("price", binary.BigEndian).BCD().SetByteLength(4).Float().DecimalPlace(4)
 	fh1.NewDecoder("intPrice", binary.BigEndian).BCD().SetByteLength(4).Integer()
@@ -83,7 +83,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		return nil
 	})
 	//3. ASCII编码，仅解释为字符串
-	fh2 := new(rot.FucntionHandler)
+	fh2 := new(rot.FunctionHandler)
 	fh2.NewDecoder("ascii", binary.BigEndian).ASCII().SetByteLength(4).String()
 	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)

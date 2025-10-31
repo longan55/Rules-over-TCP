@@ -16,7 +16,7 @@ func NewProtocolBuilder() *ProtocolBuilder {
 		du: &ProtocolImpl{
 			elements: make([]ProtocolElement, 0, 3),
 		},
-		fh: make(map[FunctionCode]*FucntionHandler, 32),
+		fh: make(map[FunctionCode]*FunctionHandler, 32),
 	}
 }
 
@@ -28,7 +28,7 @@ func NewProtocolBuilder() *ProtocolBuilder {
 
 type ProtocolBuilder struct {
 	du *ProtocolImpl
-	fh map[FunctionCode]*FucntionHandler
+	fh map[FunctionCode]*FunctionHandler
 }
 
 func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolBuilder {
@@ -41,7 +41,7 @@ func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *Prot
 	return duBuilder
 }
 
-func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FucntionHandler) *ProtocolBuilder {
+func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler) *ProtocolBuilder {
 	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
@@ -51,8 +51,8 @@ func (duBuilder *ProtocolBuilder) AddHandlerConfig(config *HandlerConfig) *Proto
 	return duBuilder
 }
 
-func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FucntionHandler {
-	fh := &FucntionHandler{
+func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FunctionHandler {
+	fh := &FunctionHandler{
 		fc: fc,
 	}
 	duBuilder.fh[fc] = fh
@@ -74,7 +74,7 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 }
 
 type Protocol interface {
-	AddHandler(fc FunctionCode, f *FucntionHandler)
+	AddHandler(fc FunctionCode, f *FunctionHandler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length int)
 	//Parse(adu [][]byte) error
@@ -97,12 +97,12 @@ type ProtocolImpl struct {
 	//存储协议元素信息
 	elements []ProtocolElement
 	// parserMap  map[FunctionCode]Parser
-	handlerMap map[FunctionCode]*FucntionHandler
+	handlerMap map[FunctionCode]*FunctionHandler
 }
 
-func (dph *ProtocolImpl) AddHandler(fc FunctionCode, f *FucntionHandler) {
+func (dph *ProtocolImpl) AddHandler(fc FunctionCode, f *FunctionHandler) {
 	if dph.handlerMap == nil {
-		dph.handlerMap = make(map[FunctionCode]*FucntionHandler)
+		dph.handlerMap = make(map[FunctionCode]*FunctionHandler)
 	}
 	dph.handlerMap[fc] = f
 }

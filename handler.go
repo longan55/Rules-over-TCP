@@ -7,7 +7,7 @@ import (
 
 //业务处理函数
 
-var HandlerTest = &FucntionHandler{
+var HandlerTest = &FunctionHandler{
 	length: 1,
 }
 
@@ -18,20 +18,20 @@ type FunctionCode byte
 type Handler func(parsed map[string]ParsedData) error
 
 type HandlerConfig struct {
-	handlerMap map[FunctionCode]*FucntionHandler
+	handlerMap map[FunctionCode]*FunctionHandler
 }
 
-func (hc *HandlerConfig) AddHandler(fc FunctionCode, h *FucntionHandler) {
+func (hc *HandlerConfig) AddHandler(fc FunctionCode, h *FunctionHandler) {
 	hc.handlerMap[fc] = h
 }
 
 func NewHandlerConfig() *HandlerConfig {
 	return &HandlerConfig{
-		handlerMap: make(map[FunctionCode]*FucntionHandler, 32),
+		handlerMap: make(map[FunctionCode]*FunctionHandler, 32),
 	}
 }
 
-type FucntionHandler struct {
+type FunctionHandler struct {
 	length     int
 	fc         FunctionCode
 	handler    Handler
@@ -40,7 +40,7 @@ type FucntionHandler struct {
 	encoders   []*EncoderImpl
 }
 
-func (fh *FucntionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
+func (fh *FunctionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
 	decoder := &DecoderImpl{fh: fh, order: order}
 	fh.fieldNames = append(fh.fieldNames, fieldName)
 	fh.decoders = append(fh.decoders, decoder)
@@ -48,7 +48,7 @@ func (fh *FucntionHandler) NewDecoder(fieldName string, order binary.ByteOrder) 
 }
 
 // TODO: 预防数组越界
-func (fh *FucntionHandler) Parse(data []byte) (map[string]ParsedData, error) {
+func (fh *FunctionHandler) Parse(data []byte) (map[string]ParsedData, error) {
 	if len(data) != fh.length {
 		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
 	}
@@ -76,12 +76,12 @@ func (fh *FucntionHandler) Parse(data []byte) (map[string]ParsedData, error) {
 	return result, nil
 }
 
-func (fh *FucntionHandler) SetHandle(h Handler) error {
+func (fh *FunctionHandler) SetHandle(h Handler) error {
 	fh.handler = h
 	return nil
 }
 
-func (fh *FucntionHandler) Handle(data []byte) error {
+func (fh *FunctionHandler) Handle(data []byte) error {
 	if fh.handler == nil {
 		return fmt.Errorf("handler is nil")
 	}
@@ -103,7 +103,7 @@ type ParsedData struct {
 	Explained any
 }
 
-func (fh *FucntionHandler) NewEncoder(fieldName string, order binary.ByteOrder) *EncoderImpl {
+func (fh *FunctionHandler) NewEncoder(fieldName string, order binary.ByteOrder) *EncoderImpl {
 	encoder := &EncoderImpl{fh: fh, order: order}
 	fh.fieldNames = append(fh.fieldNames, fieldName)
 	fh.encoders = append(fh.encoders, encoder)

@@ -22,7 +22,7 @@ type DataTyper interface {
 }
 
 type DecoderImpl struct {
-	fh      *FucntionHandler
+	fh      *FunctionHandler
 	decoder DecodeType
 	order   binary.ByteOrder
 }
@@ -482,16 +482,16 @@ type CP56TIME2AString struct {
 
 //Encoder
 
-type EncoderImpl struct {
-	byteLength int
-	fh         *FucntionHandler
-	order      binary.ByteOrder
-}
+// type EncoderImpl struct {
+// 	byteLength int
+// 	fh         *FucntionHandler
+// 	order      binary.ByteOrder
+// }
 
-func (encoder *EncoderImpl) BIN() *BIN {
-	temp := &BIN{
-		encoder: encoder,
-		order:   encoder.order,
-	}
-	return temp
-}
+// func (encoder *EncoderImpl) BIN() *BIN {
+// 	temp := &BIN{
+// 		encoder: encoder,
+// 		order:   encoder.order,
+// 	}
+// 	return temp
+// }

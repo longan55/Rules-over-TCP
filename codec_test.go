@@ -145,7 +145,7 @@ import (
 // }
 
 func TestA(t *testing.T) {
-	h := new(FucntionHandler)
+	h := new(FunctionHandler)
 	h.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	h.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	h.NewDecoder("c", binary.BigEndian).BIN().SetByteLength(2).Integer()
@@ -165,7 +165,7 @@ func TestA(t *testing.T) {
 }
 
 func TestEncoder(t *testing.T) {
-	h := new(FucntionHandler)
+	h := new(FunctionHandler)
 	e1 := h.NewEncoder("a", binary.BigEndian).BIN()
 	e1.SetByteLength(4).Integer()
 	e2 := h.NewEncoder("b", binary.BigEndian).BIN()
