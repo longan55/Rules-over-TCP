@@ -2,6 +2,7 @@ package rot
 
 import (
 	"encoding/binary"
+	"fmt"
 	"testing"
 )
 
@@ -161,4 +162,17 @@ func TestA(t *testing.T) {
 		t.Errorf("Parse failed: %v", err)
 	}
 	t.Logf("result:%v\n", result)
+}
+
+func TestEncoder(t *testing.T) {
+	h := new(FucntionHandler)
+	e1 := h.NewEncoder("a", binary.BigEndian).BIN()
+	e1.SetByteLength(4).Integer()
+	e2 := h.NewEncoder("b", binary.BigEndian).BIN()
+	e2.SetByteLength(2).Integer()
+	// e3 := h.NewEncoder("d", binary.BigEndian).BIN()
+	// e3.SetByteLength(2).Float().Multiple(100)
+	fmt.Printf("e1:% #X\n", e1.Encode(2147483647))
+	fmt.Printf("e2:% #X\n", e2.Encode(4660))
+	// fmt.Printf("e3:%v\n", e3.Encode(46.6))
 }

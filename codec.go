@@ -77,12 +77,15 @@ func (bin *BIN) GetByteLength() int {
 
 func (bin *BIN) SetByteLength(byteLength int) *BIN {
 	bin.byteLength = byteLength
-	bin.decoder.AddLength(byteLength)
+	if bin.decoder != nil {
+		bin.decoder.AddLength(byteLength)
+	}
 	return bin
 }
 
 func (bin *BIN) Encode(value any) []byte {
 	tv := bin.dataTyper.Value(value)
+	fmt.Printf("tv:%v\n", tv)
 	return Int2Bin(tv.(int), byte(bin.GetByteLength()), bin.order)
 }
 
@@ -488,6 +491,7 @@ type EncoderImpl struct {
 func (encoder *EncoderImpl) BIN() *BIN {
 	temp := &BIN{
 		encoder: encoder,
+		order:   encoder.order,
 	}
 	return temp
 }
