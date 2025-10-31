@@ -9,7 +9,7 @@ import (
 )
 
 type DecodeType interface {
-	decode(data []byte, value any) error
+	// decode(data []byte, value any) error
 	Decode(data []byte) any
 	GetByteLength() int
 	// 如果希望 src 是传地址/指针，入参类型应为指针类型，使用 any 表示任意类型的指针
@@ -60,8 +60,9 @@ func (impl *DecoderImpl) CP56TIME2A() *CP56TIME2A {
 	return &cp56time2a
 }
 
-// BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
+// BIN编码,默认解释为整数，可经四则运算解释为浮点数，不能解释为字符串（字符串自行转换）。
 type BIN struct {
+	encoder    *EncoderImpl
 	decoder    *DecoderImpl
 	dataTyper  DataTyper
 	byteLength int
@@ -80,17 +81,13 @@ func (bin *BIN) SetByteLength(byteLength int) *BIN {
 	return bin
 }
 
-func (bin *BIN) decode(data []byte, value any) error {
-	*value.(*int) = Bin2Int(data, bin.order)
-	return nil
+func (bin *BIN) Encode(value any) []byte {
+	tv := bin.dataTyper.Value(value)
+	return Int2Bin(tv.(int), byte(bin.GetByteLength()), bin.order)
 }
 
 func (bin *BIN) Decode(data []byte) any {
-	var src int
-	err := bin.decode(data, &src)
-	if err != nil {
-		return nil
-	}
+	src := Bin2Int(data, bin.order)
 	sv := bin.dataTyper.Value(src)
 	return sv
 }
@@ -109,7 +106,7 @@ func (bin *BIN) Integer() *BINInteger {
 	return temp
 }
 
-func (bin *BIN) Float1() *BINFloat {
+func (bin *BIN) Float() *BINFloat {
 	tmp := &BINFloat{
 		encoder: bin,
 		order:   bin.order,
@@ -117,15 +114,6 @@ func (bin *BIN) Float1() *BINFloat {
 	}
 	bin.dataTyper = tmp
 	return tmp
-}
-
-func (bin *BIN) String1() *BINString {
-	temp := &BINString{
-		encoder: bin,
-		order:   bin.order,
-	}
-	bin.dataTyper = temp
-	return temp
 }
 
 type BINInteger struct {
@@ -325,16 +313,6 @@ func (bcdi *BCDInteger) ExplainedValue(src any) any {
 	return bcdi.Value(src)
 }
 
-func (bcdi *BCDInteger) SourceValue(data []byte) int {
-	temp := ""
-	bcdi.encoder.decode(data, &temp)
-	source, err := strconv.Atoi(temp)
-	if err != nil {
-		return 0
-	}
-	return source
-}
-
 func (bcd *BCD) Float() *BCDFloat {
 	temp := &BCDFloat{
 		encoder: bcd,
@@ -459,11 +437,6 @@ func (ascii *ASCIIString) ExplainedValue(src any) any {
 	return ascii.Value(src)
 }
 
-func (ascii *ASCIIString) SourceValue(data []byte) (str string) {
-	ascii.encoder.decode(data, &str)
-	return
-}
-
 type CP56TIME2A struct {
 	decoder    *DecoderImpl
 	order      binary.ByteOrder
@@ -496,15 +469,25 @@ func (cp56 *CP56TIME2A) GetByteLength() int {
 }
 func (cp56 *CP56TIME2A) String() *CP56TIME2AString {
 	return &CP56TIME2AString{
-		encoder: cp56,
+		decoder: cp56,
 	}
 }
 
 type CP56TIME2AString struct {
-	encoder DecodeType
+	decoder DecodeType
 }
 
-func (cp56 *CP56TIME2AString) SourceValue(data []byte) (str string) {
-	cp56.encoder.decode(data, &str)
-	return
+//Encoder
+
+type EncoderImpl struct {
+	byteLength int
+	fh         *FucntionHandler
+	order      binary.ByteOrder
+}
+
+func (encoder *EncoderImpl) BIN() *BIN {
+	temp := &BIN{
+		encoder: encoder,
+	}
+	return temp
 }

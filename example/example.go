@@ -61,7 +61,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	fh.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	fh.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	fh.NewDecoder("c", binary.BigEndian).BIN().SetByteLength(2).Integer()
-	fh.NewDecoder("d", binary.BigEndian).BIN().SetByteLength(2).Float1().Multiple(0.01)
+	fh.NewDecoder("d", binary.BigEndian).BIN().SetByteLength(2).Float().Multiple(0.01)
 	fh.NewDecoder("e", binary.BigEndian).BIN().SetByteLength(1).Integer().SetEnum(map[int]any{
 		0: "A",
 		1: "B",

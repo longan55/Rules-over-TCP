@@ -161,7 +161,7 @@ func Bin2Float64(order binary.ByteOrder, b []byte, bit int) (float64, error) {
 
 // Float64ToBin  f:浮点数, byteLength:字节数, bit:小数点位数
 func Float64ToBin(f float64, byteLength byte, bit int) []byte {
-	i := int64(f * math.Pow10(bit))
+	i := int(f * math.Pow10(bit))
 	return Int2Bin(i, byteLength, binary.LittleEndian)
 }
 
@@ -305,7 +305,7 @@ func Bin2Int(b []byte, orders ...binary.ByteOrder) int {
 	}
 }
 
-func Int2Bin(n int64, bytesLength byte, order binary.ByteOrder) []byte {
+func Int2Bin(n int, bytesLength byte, order binary.ByteOrder) []byte {
 	switch bytesLength {
 	case 1:
 		tmp := int8(n)
@@ -370,7 +370,7 @@ func EncodeCP56time2a(str string) []byte {
 	if err != nil {
 		return b
 	}
-	second := Int2Bin(int64(parse.Second())*1000, 2, binary.LittleEndian)
+	second := Int2Bin(int(parse.Second())*1000, 2, binary.LittleEndian)
 	min := byte(parse.Minute())
 	hour := byte(parse.Hour())
 	day := byte(parse.Day())

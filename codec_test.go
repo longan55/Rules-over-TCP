@@ -148,7 +148,7 @@ func TestA(t *testing.T) {
 	h.NewDecoder("a", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	h.NewDecoder("b", binary.BigEndian).BIN().SetByteLength(4).Integer()
 	h.NewDecoder("c", binary.BigEndian).BIN().SetByteLength(2).Integer()
-	h.NewDecoder("d", binary.BigEndian).BIN().SetByteLength(2).Float1().Multiple(0.01)
+	h.NewDecoder("d", binary.BigEndian).BIN().SetByteLength(2).Float().Multiple(0.01)
 	h.NewDecoder("e", binary.BigEndian).BIN().SetByteLength(1).Integer().SetEnum(map[int]any{
 		0: "A",
 		1: "B",

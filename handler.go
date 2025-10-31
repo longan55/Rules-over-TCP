@@ -36,13 +36,14 @@ type FucntionHandler struct {
 	fc         FunctionCode
 	handler    Handler
 	fieldNames []string
-	m          []*DecoderImpl
+	decoders   []*DecoderImpl
+	encoders   []*EncoderImpl
 }
 
 func (fh *FucntionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
 	decoder := &DecoderImpl{fh: fh, order: order}
 	fh.fieldNames = append(fh.fieldNames, fieldName)
-	fh.m = append(fh.m, decoder)
+	fh.decoders = append(fh.decoders, decoder)
 	return decoder
 }
 
@@ -52,9 +53,9 @@ func (fh *FucntionHandler) Parse(data []byte) (map[string]ParsedData, error) {
 		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
 	}
 	//HEX格式：每两个字节之间用空格隔开，前面添加0X，不足2位用0填充
-	result := make(map[string]ParsedData, len(fh.m))
+	result := make(map[string]ParsedData, len(fh.decoders))
 	offset := 0
-	for i, impl := range fh.m {
+	for i, impl := range fh.decoders {
 		fieldName := fh.fieldNames[i]
 		length := impl.decoder.GetByteLength()
 		fmt.Printf("No.%d_FIELD_(%s)_len(%d): [%# X] ", i+1, fieldName, length, data[offset:offset+length])
@@ -100,4 +101,11 @@ type ParsedData struct {
 	Bytes     []byte
 	Origin    any
 	Explained any
+}
+
+func (fh *FucntionHandler) NewEncoder(fieldName string, order binary.ByteOrder) *EncoderImpl {
+	encoder := &EncoderImpl{fh: fh, order: order}
+	fh.fieldNames = append(fh.fieldNames, fieldName)
+	fh.encoders = append(fh.encoders, encoder)
+	return encoder
 }
