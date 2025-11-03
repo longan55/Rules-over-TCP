@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 )
 
 // CodecOption 配置选项接口
@@ -29,16 +28,20 @@ type FieldCodecConfig struct {
 	mode          CodecMode
 	codec         Codec
 	dataTyper     DataTyper
+	ndt           NewDataTyper
 	explainConfig *ExplainConfig
 }
 
 // ExplainConfig 数据解释配置
 type ExplainConfig struct {
-	decimal  int         // 小数位数
-	multiple float64     // 倍数
-	offset   float64     // 偏移量
-	enum     map[int]any // 枚举映射
-	bitmap   map[int]any // 位图映射
+	moflag   bool
+	multiple float64 // 倍数
+	offset   float64 // 偏移量
+
+	other string      // 其他解释
+	enum  map[int]any // 枚举映射
+
+	bitmap map[int]any // 位图映射
 }
 
 // NewFieldCodecConfig 创建新的字段编解码配置
@@ -60,16 +63,16 @@ func NewFieldCodecConfig(name string, options ...CodecOption) *FieldCodecConfig 
 	}
 
 	// 根据编解码器类型设置默认的数据类型解释器
-	if config.dataTyper == nil {
-		switch config.codec.(type) {
-		case *CodecBIN:
-			config.dataTyper = &BINInteger{}
-		case *CodecBCD:
-			config.dataTyper = &BCDString{}
-		case *CodecASCII:
-			config.dataTyper = &ASCIIString{}
-		}
-	}
+	// if config.dataTyper == nil {
+	// 	switch config.codec.(type) {
+	// 	case *CodecBIN:
+	// 		config.dataTyper = &BINInteger{}
+	// 	case *CodecBCD:
+	// 		config.dataTyper = &BCDString{}
+	// 	case *CodecASCII:
+	// 		config.dataTyper = &ASCIIString{}
+	// 	}
+	// }
 
 	return config
 }
@@ -127,30 +130,6 @@ func (o *dataTyperOption) Apply(config *FieldCodecConfig) {
 	config.dataTyper = o.dataTyper
 }
 
-// WithDecimal 设置小数位数选项
-func WithDecimal(decimal int) CodecOption {
-	return &decimalOption{decimal}
-}
-
-type decimalOption struct {
-	decimal int
-}
-
-func (o *decimalOption) Apply(config *FieldCodecConfig) {
-	config.explainConfig.decimal = o.decimal
-	// 如果设置了小数位数，自动使用浮点数解释器
-	switch config.codec.(type) {
-	case *CodecBIN:
-		config.dataTyper = &BINFloat1{
-			decimal: o.decimal,
-		}
-	case *CodecBCD:
-		config.dataTyper = &BCDFloat{
-			decimal: o.decimal,
-		}
-	}
-}
-
 // WithMultiple 设置倍数选项
 func WithMultiple(multiple float64) CodecOption {
 	return &multipleOption{multiple}
@@ -161,7 +140,13 @@ type multipleOption struct {
 }
 
 func (o *multipleOption) Apply(config *FieldCodecConfig) {
+	if config.explainConfig == nil {
+		config.explainConfig = &ExplainConfig{}
+	}
 	config.explainConfig.multiple = o.multiple
+	if config.explainConfig.offset != 0 {
+		config.explainConfig.moflag = true
+	}
 }
 
 // WithOffset 设置偏移量选项
@@ -174,20 +159,42 @@ type offsetOption struct {
 }
 
 func (o *offsetOption) Apply(config *FieldCodecConfig) {
+	if config.explainConfig == nil {
+		config.explainConfig = &ExplainConfig{}
+	}
 	config.explainConfig.offset = o.offset
 }
 
 // WithEnum 设置枚举映射选项
-func WithEnum(enum map[int]any) CodecOption {
-	return &enumOption{enum}
+func WithEnum(other string, enum map[int]any) CodecOption {
+	return &enumOption{other, enum}
 }
 
 type enumOption struct {
-	enum map[int]any
+	other string
+	enum  map[int]any
 }
 
 func (o *enumOption) Apply(config *FieldCodecConfig) {
+	if config.explainConfig == nil {
+		config.explainConfig = &ExplainConfig{}
+	}
 	config.explainConfig.enum = o.enum
+}
+
+func WithBitmap(bitmap map[int]any) CodecOption {
+	return &bitmapOption{bitmap}
+}
+
+type bitmapOption struct {
+	bitmap map[int]any
+}
+
+func (o *bitmapOption) Apply(config *FieldCodecConfig) {
+	if config.explainConfig == nil {
+		config.explainConfig = &ExplainConfig{}
+	}
+	config.explainConfig.bitmap = o.bitmap
 }
 
 // Codec 编解码器接口
@@ -212,15 +219,11 @@ func (c *CodecBIN) Configure() {
 
 func (c *CodecBIN) Encode(data any, byteLength int) ([]byte, error) {
 	// 根据数据类型处理编码
-	switch v := data.(type) {
-	case int:
-		return Int2Bin(v, byte(byteLength), c.order), nil
-	case float64:
-		// 浮点数需要特殊处理，这里简化处理
-		return Int2Bin(int(v), byte(byteLength), c.order), nil
-	default:
+	v, ok := data.(int)
+	if !ok {
 		return nil, fmt.Errorf("unsupported data type for BIN encoding: %T", data)
 	}
+	return Int2Bin(v, byte(byteLength), c.order), nil
 }
 
 func (c *CodecBIN) Decode(data []byte) (any, error) {
@@ -246,30 +249,15 @@ func (c *CodecBCD) Configure() {
 
 func (c *CodecBCD) Encode(data any, byteLength int) ([]byte, error) {
 	// 根据数据类型处理编码
-	switch v := data.(type) {
-	case string:
-		bcdBytes, err := hex.DecodeString(v)
-		if err != nil {
-			return nil, err
-		}
-		return bcdBytes, nil
-	case float64:
-		// 浮点数需要转换为字符串后再编码
-		format := "%0" + strconv.Itoa(byteLength*2) + ".0f"
-		strValue := fmt.Sprintf(format, v*math.Pow10(c.getDecimalFromContext()))
-		bcdBytes, err := hex.DecodeString(strValue)
-		if err != nil {
-			return nil, err
-		}
-		return bcdBytes, nil
-	default:
+	v, ok := data.(string)
+	if !ok {
 		return nil, fmt.Errorf("unsupported data type for BCD encoding: %T", data)
 	}
-}
-
-func (c *CodecBCD) getDecimalFromContext() int {
-	// 这里简化处理，实际应该从上下文中获取
-	return 0
+	bcdBytes, err := hex.DecodeString(v)
+	if err != nil {
+		return nil, err
+	}
+	return bcdBytes, nil
 }
 
 func (c *CodecBCD) Decode(data []byte) (any, error) {
@@ -304,57 +292,21 @@ func (c *CodecASCII) Configure() {
 }
 
 func (c *CodecASCII) Encode(data any, byteLength int) ([]byte, error) {
-	switch v := data.(type) {
-	case string:
-		// 确保字符串长度不超过指定长度
-		if len(v) > byteLength {
-			v = v[:byteLength]
-		}
-		return []byte(v), nil
-	default:
+	// 根据数据类型处理编码
+	v, ok := data.(string)
+	if !ok {
 		return nil, fmt.Errorf("unsupported data type for ASCII encoding: %T", data)
 	}
+	// 确保字符串长度不超过指定长度
+	if len(v) > byteLength {
+		v = v[:byteLength]
+	}
+	return []byte(v), nil
 }
 
 func (c *CodecASCII) Decode(data []byte) (any, error) {
 	return string(data), nil
 }
-
-// // DataTyper 数据类型解释器接口
-// type DataTyper interface {
-// 	Value(data any) any
-// 	ExplainedValue(data any, config *ExplainConfig) any
-// }
-
-// // BINInteger BIN整数解释器
-// type BINInteger struct{}
-
-// func (t *BINInteger) Value(data any) any {
-// 	// 这里假设data已经是int类型
-// 	return data
-// }
-
-// func (t *BINInteger) ExplainedValue(data any, config *ExplainConfig) any {
-// 	srcInt := data.(int)
-
-// 	// 应用倍数和偏移量
-// 	result := srcInt
-// 	if config.multiple != 0 {
-// 		result = int(float64(srcInt) * config.multiple)
-// 	}
-// 	if config.offset != 0 {
-// 		result += int(config.offset)
-// 	}
-
-// 	// 如果有枚举映射，使用枚举值
-// 	if config.enum != nil {
-// 		if enumValue, ok := config.enum[result]; ok {
-// 			return enumValue
-// 		}
-// 	}
-
-// 	return result
-// }
 
 // BINFloat BIN浮点数解释器
 type BINFloat1 struct {
@@ -378,82 +330,131 @@ func (t *BINFloat1) ExplainedValue(data any) any {
 	return result
 }
 
-// // BCDString BCD字符串解释器
-// type BCDString struct{}
+// BIN   - INT     explain(int -> int)
+// BIN   - FLOAT   explain(int -> float)
+// BCD   - STRING  explain(string -> string)
+// BCD   - FLOAT   explain(string -> float)
+// BCD   - INT     explain(string -> int)
+// ASCII - STRING  explain(string -> string)
 
-// func (t *BCDString) Value(data any) any {
-// 	return data
-// }
+type NewDataTyper interface {
+	Explain(data any) any
+	UnExplain(data any) any
+}
 
-// func (t *BCDString) ExplainedValue(data any, config *ExplainConfig) any {
-// 	return data
-// }
+func WithBinInteger(moflag bool, multiple int, offset int) CodecOption {
+	return &binInteger{moflag: moflag, multiple: multiple, offset: offset}
+}
 
-// // BCDFloat BCD浮点数解释器
-// type BCDFloat struct {
-// 	decimal int
-// }
+type binInteger struct {
+	moflag   bool
+	multiple int
+	offset   int
+}
 
-// func (t *BCDFloat) Value(data any) any {
-// 	return data
-// }
+var (
+	_ CodecOption  = (*binInteger)(nil)
+	_ NewDataTyper = (*binInteger)(nil)
+)
 
-// func (t *BCDFloat) ExplainedValue(data any, config *ExplainConfig) any {
-// 	srcStr := data.(string)
-// 	decimal := t.decimal
-// 	if config.decimal != 0 {
-// 		decimal = config.decimal
-// 	}
+func (t *binInteger) Explain(data any) any {
+	srcInt := data.(int)
+	// 应用倍数和偏移量
+	result := srcInt
+	if t.moflag {
+		result = srcInt*t.multiple + t.offset
+	} else {
+		result = (srcInt + t.offset) * t.multiple
+	}
+	return result
+}
+func (t *binInteger) UnExplain(data any) any {
+	srcFloat := data.(int)
+	result := 0
+	if t.moflag {
+		result = (srcFloat - t.offset) / t.multiple
+	} else {
+		result = (srcFloat / t.multiple) - t.offset
+	}
+	return result
+}
+func (t *binInteger) Apply(config *FieldCodecConfig) {
+	config.ndt = t
+}
+func WithBinFloat(moflag bool, multiple float64, offset float64) CodecOption {
+	return &binFloat{moflag: moflag, multiple: multiple, offset: offset}
+}
 
-// 	// 转换为浮点数
-// 	value, err := strconv.ParseFloat(srcStr, 64)
-// 	if err != nil {
-// 		return srcStr
-// 	}
+type binFloat struct {
+	moflag   bool
+	multiple float64
+	offset   float64
+}
 
-// 	// 应用小数位数
-// 	result := value / math.Pow10(decimal)
+var (
+	_ CodecOption  = (*binFloat)(nil)
+	_ NewDataTyper = (*binFloat)(nil)
+)
 
-// 	// 应用倍数和偏移量
-// 	if config.multiple != 0 {
-// 		result *= config.multiple
-// 	}
-// 	if config.offset != 0 {
-// 		result += config.offset
-// 	}
+func (t *binFloat) Explain(data any) any {
+	srcInt := data.(int)
+	result := 0.0
+	if t.moflag {
+		result = float64(srcInt)*t.multiple + t.offset
+	} else {
+		result = (float64(srcInt) + t.offset) * t.multiple
+	}
+	return result
+}
 
-// 	return result
-// }
+func (t *binFloat) UnExplain(data any) any {
+	srcFloat := data.(float64)
+	result := 0
+	if t.moflag {
+		result = int((srcFloat - t.offset) / t.multiple)
+	} else {
+		result = int((srcFloat / t.multiple) - t.offset)
+	}
+	return result
+}
 
-// // ASCIIString ASCII字符串解释器
-// type ASCIIString struct{}
-
-// func (t *ASCIIString) Value(data any) any {
-// 	return data
-// }
-
-// func (t *ASCIIString) ExplainedValue(data any, config *ExplainConfig) any {
-// 	return data
-// }
+func (t *binFloat) Apply(config *FieldCodecConfig) {
+	config.ndt = t
+}
 
 // // Decode 解码方法
-func (config *FieldCodecConfig) Decode(data []byte) (any, error) {
+func (config *FieldCodecConfig) Decode(data []byte) (*ParsedData, error) {
 	if config.mode != ModeDecode {
 		return nil, errors.New("config is not in decode mode")
 	}
-
 	// 使用编解码器解码
 	rawValue, err := config.codec.Decode(data)
 	if err != nil {
 		return nil, err
 	}
+	explainedValue := config.ndt.Explain(rawValue)
 
-	// 使用数据类型解释器解释
-	if config.dataTyper != nil {
-		return config.dataTyper.ExplainedValue(rawValue), nil
+	parsed := &ParsedData{
+		Bytes:     data,
+		Origin:    explainedValue,
+		Explained: explainedValue,
 	}
 
-	return rawValue, nil
+	if config.explainConfig != nil && config.explainConfig.enum != nil {
+		i, ok := explainedValue.(int)
+		if !ok {
+			return nil, fmt.Errorf("explained value is not int: %v", explainedValue)
+		}
+		if enumValue, ok := config.explainConfig.enum[i]; ok {
+			parsed.Explained = enumValue
+			return parsed, nil
+		} else {
+			parsed.Explained = config.explainConfig.other
+			return parsed, fmt.Errorf("explained value %v not found in enum", i)
+		}
+	}
+
+	return parsed, nil
 }
 
 // Encode 编码方法
@@ -461,7 +462,9 @@ func (config *FieldCodecConfig) Encode(data any) ([]byte, error) {
 	if config.mode != ModeEncode {
 		return nil, errors.New("config is not in encode mode")
 	}
-
+	if config.ndt != nil {
+		data = config.ndt.UnExplain(data)
+	}
 	// 使用编解码器编码
 	return config.codec.Encode(data, config.length)
 }

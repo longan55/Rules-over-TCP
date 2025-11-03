@@ -38,6 +38,12 @@ type FunctionHandler struct {
 	fieldNames []string
 	decoders   []*DecoderImpl
 	encoders   []*EncoderImpl
+
+	fccs []*FieldCodecConfig
+}
+
+func (fh *FunctionHandler) AddField(fcc *FieldCodecConfig) {
+	fh.fccs = append(fh.fccs, fcc)
 }
 
 func (fh *FunctionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
