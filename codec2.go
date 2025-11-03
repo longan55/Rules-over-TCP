@@ -8,6 +8,11 @@ import (
 	"math"
 )
 
+// BIN码 可以解释为整数、浮点数
+// BCD码 可以解释为字符串、整数（max: 18446744073709551615）、浮点数
+// ASCII 只能解释为字符串
+// CP56TIME2A 可以解释为字符串
+
 // CodecOption 配置选项接口
 type CodecOption interface {
 	Apply(config *FieldCodecConfig)
