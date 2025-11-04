@@ -49,11 +49,11 @@ func (fh *FunctionHandler) AddField(fieldName string, options ...CodecOption) *F
 	return fcc
 }
 
-func (fh *FunctionHandler) Parse2(data []byte) (map[string]*ParsedData, error) {
+func (fh *FunctionHandler) Parse2(data []byte) (map[string]ParsedData, error) {
 	if len(data) != fh.length {
 		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
 	}
-	result := make(map[string]*ParsedData, len(fh.decoders))
+	result := make(map[string]ParsedData, len(fh.decoders))
 	offset := 0
 	for i, impl := range fh.fccs {
 		fieldName := fh.fieldNames[i]
@@ -63,7 +63,7 @@ func (fh *FunctionHandler) Parse2(data []byte) (map[string]*ParsedData, error) {
 		if err != nil {
 			return nil, err
 		}
-		result[fieldName] = value
+		result[fieldName] = *value
 	}
 	return result, nil
 }
@@ -105,6 +105,9 @@ func (fh *FunctionHandler) Parse(data []byte) (map[string]ParsedData, error) {
 }
 
 func (fh *FunctionHandler) SetHandle(h Handler) error {
+	for _, fcc := range fh.fccs {
+		fh.length += fcc.length
+	}
 	fh.handler = h
 	return nil
 }
@@ -113,7 +116,7 @@ func (fh *FunctionHandler) Handle(data []byte) error {
 	if fh.handler == nil {
 		return fmt.Errorf("handler is nil")
 	}
-	parsed, err := fh.Parse(data)
+	parsed, err := fh.Parse2(data)
 	if err != nil {
 		return err
 	}

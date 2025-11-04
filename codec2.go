@@ -455,7 +455,7 @@ func (config *FieldCodecConfig) Decode(data []byte) (*ParsedData, error) {
 			return parsed, nil
 		} else {
 			parsed.Explained = config.explainConfig.other
-			return parsed, fmt.Errorf("explained value %v not found in enum", i)
+			return parsed, nil
 		}
 	}
 
