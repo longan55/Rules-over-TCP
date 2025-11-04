@@ -49,6 +49,25 @@ func (fh *FunctionHandler) AddField(fieldName string, options ...CodecOption) *F
 	return fcc
 }
 
+func (fh *FunctionHandler) Parse2(data []byte) (map[string]*ParsedData, error) {
+	if len(data) != fh.length {
+		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
+	}
+	result := make(map[string]*ParsedData, len(fh.decoders))
+	offset := 0
+	for i, impl := range fh.fccs {
+		fieldName := fh.fieldNames[i]
+		length := impl.length
+		input := data[offset : offset+length]
+		value, err := impl.Decode(input)
+		if err != nil {
+			return nil, err
+		}
+		result[fieldName] = value
+	}
+	return result, nil
+}
+
 func (fh *FunctionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
 	decoder := &DecoderImpl{fh: fh, order: order}
 	fh.fieldNames = append(fh.fieldNames, fieldName)
