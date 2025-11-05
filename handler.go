@@ -1,7 +1,6 @@
 package rot
 
 import (
-	"encoding/binary"
 	"fmt"
 )
 
@@ -36,8 +35,6 @@ type FunctionHandler struct {
 	fc         FunctionCode
 	handler    Handler
 	fieldNames []string
-	decoders   []*DecoderImpl
-	encoders   []*EncoderImpl
 
 	fccs []*FieldCodecConfig
 }
@@ -53,7 +50,7 @@ func (fh *FunctionHandler) Parse2(data []byte) (map[string]ParsedData, error) {
 	if len(data) != fh.length {
 		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
 	}
-	result := make(map[string]ParsedData, len(fh.decoders))
+	result := make(map[string]ParsedData, len(fh.fccs))
 	offset := 0
 	for i, impl := range fh.fccs {
 		fieldName := fh.fieldNames[i]
@@ -64,42 +61,6 @@ func (fh *FunctionHandler) Parse2(data []byte) (map[string]ParsedData, error) {
 			return nil, err
 		}
 		result[fieldName] = *value
-	}
-	return result, nil
-}
-
-func (fh *FunctionHandler) NewDecoder(fieldName string, order binary.ByteOrder) *DecoderImpl {
-	decoder := &DecoderImpl{fh: fh, order: order}
-	fh.fieldNames = append(fh.fieldNames, fieldName)
-	fh.decoders = append(fh.decoders, decoder)
-	return decoder
-}
-
-// TODO: 预防数组越界
-func (fh *FunctionHandler) Parse(data []byte) (map[string]ParsedData, error) {
-	if len(data) != fh.length {
-		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
-	}
-	//HEX格式：每两个字节之间用空格隔开，前面添加0X，不足2位用0填充
-	result := make(map[string]ParsedData, len(fh.decoders))
-	offset := 0
-	for i, impl := range fh.decoders {
-		fieldName := fh.fieldNames[i]
-		length := impl.decoder.GetByteLength()
-		fmt.Printf("No.%d_FIELD_(%s)_len(%d): [%# X] ", i+1, fieldName, length, data[offset:offset+length])
-		input := data[offset : offset+length]
-		value, err := impl.Decode(input)
-		if err != nil {
-			return nil, err
-		}
-		offset += length
-		pd := ParsedData{
-			Bytes:     input,
-			Origin:    value,
-			Explained: impl.decoder.ExplainedValue(value),
-		}
-		result[fieldName] = pd
-		fmt.Printf("DecodeValue:%v\n", value)
 	}
 	return result, nil
 }
@@ -132,11 +93,4 @@ type ParsedData struct {
 	Bytes     []byte
 	Origin    any
 	Explained any
-}
-
-func (fh *FunctionHandler) NewEncoder(fieldName string, order binary.ByteOrder) *EncoderImpl {
-	encoder := &EncoderImpl{fh: fh, order: order}
-	fh.fieldNames = append(fh.fieldNames, fieldName)
-	fh.encoders = append(fh.encoders, encoder)
-	return encoder
 }

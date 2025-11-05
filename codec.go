@@ -3,495 +3,242 @@ package rot
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
-	"strconv"
 )
-
-type DecodeType interface {
-	// decode(data []byte, value any) error
-	Decode(data []byte) any
-	GetByteLength() int
-	// 如果希望 src 是传地址/指针，入参类型应为指针类型，使用 any 表示任意类型的指针
-	ExplainedValue(src any) any
-}
 
 type DataTyper interface {
 	Value(src any) any
 	ExplainedValue(src any) any
 }
 
-type DecoderImpl struct {
-	fh      *FunctionHandler
-	decoder DecodeType
-	order   binary.ByteOrder
+// BIN码 可以解释为整数、浮点数
+// BCD码 可以解释为字符串、整数（max: 18446744073709551615）、浮点数
+// ASCII 只能解释为字符串
+// CP56TIME2A 可以解释为字符串
+
+// Codec 编解码器接口
+type Codec interface {
+	Configure() // 初始化编解码器
+	Encode(data any, byteLength int) ([]byte, error)
+	Decode(data []byte) (any, error)
 }
 
-func (impl *DecoderImpl) AddLength(length int) {
-	impl.fh.length += length
+// CodecBIN BIN编解码器
+type CodecBIN struct {
+	order binary.ByteOrder
 }
 
-func (impl *DecoderImpl) Decode(data []byte) (any, error) {
-	sv := impl.decoder.Decode(data)
-	return sv, nil
+func NewCodecBIN(order binary.ByteOrder) *CodecBIN {
+	return &CodecBIN{order: order}
 }
 
-func (impl *DecoderImpl) BIN() *BIN {
-	bin := BIN{decoder: impl, order: impl.order}
-	impl.decoder = &bin
-	return &bin
+func (c *CodecBIN) Configure() {
+	// 初始化操作（如果需要）
 }
 
-func (impl *DecoderImpl) BCD() *BCD {
-	bcd := BCD{decoder: impl, order: impl.order}
-	impl.decoder = &bcd
-	return &bcd
-}
-
-func (impl *DecoderImpl) ASCII() *ASCII {
-	ascii := ASCII{decoder: impl, order: impl.order}
-	impl.decoder = &ascii
-	return &ascii
-}
-
-func (impl *DecoderImpl) CP56TIME2A() *CP56TIME2A {
-	cp56time2a := CP56TIME2A{decoder: impl, order: impl.order}
-	impl.decoder = &cp56time2a
-	return &cp56time2a
-}
-
-// BIN编码,默认解释为整数，可经四则运算解释为浮点数，不能解释为字符串（字符串自行转换）。
-type BIN struct {
-	encoder    *EncoderImpl
-	decoder    *DecoderImpl
-	dataTyper  DataTyper
-	byteLength int
-	order      binary.ByteOrder
-}
-
-var _ DecodeType = (*BIN)(nil)
-
-func (bin *BIN) GetByteLength() int {
-	return bin.byteLength
-}
-
-func (bin *BIN) SetByteLength(byteLength int) *BIN {
-	bin.byteLength = byteLength
-	if bin.decoder != nil {
-		bin.decoder.AddLength(byteLength)
+func (c *CodecBIN) Encode(data any, byteLength int) ([]byte, error) {
+	// 根据数据类型处理编码
+	v, ok := data.(int)
+	if !ok {
+		return nil, fmt.Errorf("unsupported data type for BIN encoding: %T", data)
 	}
-	return bin
+	return Int2Bin(v, byte(byteLength), c.order), nil
 }
 
-func (bin *BIN) Encode(value any) []byte {
-	tv := bin.dataTyper.Value(value)
-	fmt.Printf("tv:%v\n", tv)
-	return Int2Bin(tv.(int), byte(bin.GetByteLength()), bin.order)
-}
-
-func (bin *BIN) Decode(data []byte) any {
-	src := Bin2Int(data, bin.order)
-	sv := bin.dataTyper.Value(src)
-	return sv
-}
-
-func (bin *BIN) ExplainedValue(src any) any {
-	return bin.dataTyper.ExplainedValue(src)
-}
-
-func (bin *BIN) Integer() *BINInteger {
-	temp := &BINInteger{
-		encoder: bin,
-		order:   bin.order,
-		mul:     1,
+func (c *CodecBIN) Decode(data []byte) (any, error) {
+	if len(data) == 0 {
+		return nil, errors.New("empty data for decoding")
 	}
-	bin.dataTyper = temp
-	return temp
+	src := Bin2Int(data, c.order)
+	return src, nil
 }
 
-func (bin *BIN) Float() *BINFloat {
-	tmp := &BINFloat{
-		encoder: bin,
-		order:   bin.order,
-		mul:     1,
+// CodecBCD BCD编解码器
+type CodecBCD struct {
+	order binary.ByteOrder
+}
+
+func NewCodecBCD(order binary.ByteOrder) *CodecBCD {
+	return &CodecBCD{order: order}
+}
+
+func (c *CodecBCD) Configure() {
+	// 初始化操作（如果需要）
+}
+
+func (c *CodecBCD) Encode(data any, byteLength int) ([]byte, error) {
+	// 根据数据类型处理编码
+	v, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("unsupported data type for BCD encoding: %T", data)
 	}
-	bin.dataTyper = tmp
-	return tmp
-}
-
-type BINInteger struct {
-	encoder DecodeType
-	order   binary.ByteOrder
-	mflag   bool
-	oflag   bool
-	mul     float64
-	offset  float64
-	enum    map[int]any
-	bitmap  map[int]any
-}
-
-var _ DataTyper = (*BINInteger)(nil)
-
-// TODO:Multiple和Offset，考虑是否需要设置幂等性
-func (i *BINInteger) Multiple(mul float64) *BINInteger {
-	i.mul = mul
-	if !i.oflag {
-		i.mflag = true
+	bcdBytes, err := hex.DecodeString(v)
+	if err != nil {
+		return nil, err
 	}
-	return i
+	return bcdBytes, nil
 }
 
-// Offset: 设置偏移量，注意和Multiple的先后顺序，将影响计算顺序
-func (i *BINInteger) Offset(offset float64) *BINInteger {
-	i.offset = offset
-	if i.mflag {
-		i.oflag = true
+func (c *CodecBCD) Decode(data []byte) (any, error) {
+	if len(data) == 0 {
+		return nil, errors.New("empty data for decoding")
 	}
-	return i
-}
-
-func (i *BINInteger) SetEnum(enum map[int]any) *BINInteger {
-	i.enum = enum
-	return i
-}
-
-func (i *BINInteger) SetBitMap(bitmap map[int]any) *BINInteger {
-	i.bitmap = bitmap
-	return i
-}
-
-func (i *BINInteger) Value(src any) any {
-	srcInt := src.(int)
-	if i.mflag {
-		return srcInt*int(i.mul) + int(i.offset)
-	} else if i.oflag {
-		return (srcInt + int(i.offset)) * int(i.mul)
-	} else {
-		return srcInt
-	}
-}
-
-func (i *BINInteger) ExplainedValue(src any) any {
-	srcInt := src.(int)
-	if i.enum != nil {
-		return i.enum[srcInt]
-	}
-	if i.bitmap != nil {
-		return i.bitmap[srcInt]
-	}
-	return srcInt
-}
-
-type BINFloat struct {
-	encoder DecodeType
-	order   binary.ByteOrder
-	mflag   bool
-	oflag   bool
-	mul     float64
-	offset  float64
-	// srcValue float64
-}
-
-var _ DataTyper = (*BINFloat)(nil)
-
-func (f *BINFloat) Multiple(mul float64) *BINFloat {
-	f.mul = mul
-	if !f.oflag {
-		f.mflag = true
-	}
-	return f
-}
-
-func (f *BINFloat) Offset(offset float64) *BINFloat {
-	f.offset = offset
-	if f.mflag {
-		f.oflag = true
-	}
-	return f
-}
-
-func (f *BINFloat) Value(src any) any {
-	srcFloat := src.(int)
-	if f.mflag {
-		return float64(srcFloat)*f.mul + f.offset
-	} else if f.oflag {
-		return (float64(srcFloat) + f.offset) * f.mul
-	} else {
-		return float64(srcFloat)
-	}
-}
-
-func (f *BINFloat) ExplainedValue(src any) any {
-	return src
-}
-
-type BINString struct {
-	encoder DecodeType
-	order   binary.ByteOrder
-}
-
-var _ DataTyper = (*BINString)(nil)
-
-func (s *BINString) Value(src any) any {
-	srcStr := src.(int)
-	return strconv.Itoa(srcStr)
-}
-
-func (s *BINString) ExplainedValue(src any) any {
-	srcStr := src.(string)
-	return srcStr
-}
-
-// BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
-type BCD struct {
-	decoder    *DecoderImpl
-	order      binary.ByteOrder
-	byteLength int
-	dataTyper  DataTyper
-}
-
-func (bcd *BCD) decode(data []byte, value any) error {
 	// 根据字节序处理数据
-	if bcd.order == binary.LittleEndian && len(data) > 1 {
+	if c.order == binary.LittleEndian && len(data) > 1 {
 		// 小端序需要反转字节顺序
 		reversed := make([]byte, len(data))
 		for i := range len(reversed) {
 			reversed[i] = data[len(data)-1-i]
 		}
-		*value.(*string) = hex.EncodeToString(reversed)
+		return hex.EncodeToString(reversed), nil
 	} else {
 		// 大端序（默认）直接使用原数据
-		*value.(*string) = hex.EncodeToString(data)
+		return hex.EncodeToString(data), nil
 	}
-	return nil
 }
 
-func (bcd *BCD) Decode(data []byte) any {
-	var value string
-	err := bcd.decode(data, &value)
-	if err != nil {
-		return nil
+// CodecASCII ASCII编解码器
+type CodecASCII struct {
+	// ASCII编解码器配置
+}
+
+func NewCodecASCII() *CodecASCII {
+	return &CodecASCII{}
+}
+
+func (c *CodecASCII) Configure() {
+	// 初始化操作（如果需要）
+}
+
+func (c *CodecASCII) Encode(data any, byteLength int) ([]byte, error) {
+	// 根据数据类型处理编码
+	v, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("unsupported data type for ASCII encoding: %T", data)
 	}
-	return value
-}
-
-func (bcd *BCD) ExplainedValue(src any) any {
-	return bcd.dataTyper.ExplainedValue(src)
-}
-
-func (bcd *BCD) SetByteLength(byteLength int) *BCD {
-	bcd.byteLength = byteLength
-	bcd.decoder.AddLength(byteLength)
-	return bcd
-}
-func (bcd *BCD) GetByteLength() int {
-	return bcd.byteLength
-}
-func (bcd *BCD) Integer() *BCDInteger {
-	temp := &BCDInteger{
-		encoder: bcd,
-		// order:   bcd.order,
+	// 确保字符串长度不超过指定长度
+	if len(v) > byteLength {
+		v = v[:byteLength]
 	}
-	bcd.dataTyper = temp
-	return temp
+	return []byte(v), nil
 }
 
-type BCDInteger struct {
-	encoder DecodeType
-	// order   binary.ByteOrder
+func (c *CodecASCII) Decode(data []byte) (any, error) {
+	return string(data), nil
 }
 
-var _ DataTyper = (*BCDInteger)(nil)
-
-func (bcdi *BCDInteger) Value(src any) any {
-	srcInt := src.(string)
-	source, err := strconv.Atoi(srcInt)
-	if err != nil {
-		return 0
-	}
-	return source
-}
-
-func (bcdi *BCDInteger) ExplainedValue(src any) any {
-	return bcdi.Value(src)
-}
-
-func (bcd *BCD) Float() *BCDFloat {
-	temp := &BCDFloat{
-		encoder: bcd,
-	}
-	bcd.dataTyper = temp
-	return temp
-}
-
-type BCDFloat struct {
-	encoder DecodeType
+// BINFloat BIN浮点数解释器
+type BINFloat1 struct {
 	decimal int
 }
 
-var _ DataTyper = (*BCDFloat)(nil)
+var _ DataTyper = (*BINFloat1)(nil)
 
-func (bcdf *BCDFloat) ExplainedValue(src any) any {
-	return bcdf.Value(src)
+func (t *BINFloat1) Value(data any) any {
+	return data
 }
 
-func (bcdf *BCDFloat) DecimalPlace(decimal int) *BCDFloat {
-	bcdf.decimal = decimal
-	return bcdf
-}
+func (t *BINFloat1) ExplainedValue(data any) any {
+	srcInt := data.(int)
+	decimal := t.decimal
+	// 计算浮点数
+	result := float64(srcInt) / math.Pow10(decimal)
 
-func (bcdf *BCDFloat) Value(src any) any {
-	srcFloat := src.(string)
-	// return float64(srcFloat) / math.Pow10(bcdf.decimal)
-	// 先将字符串转换为浮点数
-	source, err := strconv.ParseFloat(srcFloat, 64)
-	if err != nil {
-		return 0
-	}
-
-	// 计算除以10的幂次后的值
-	value := source / math.Pow10(bcdf.decimal)
-
-	// 使用FormatFloat和ParseFloat来精确控制小数位数
-	// 这可以确保结果按照指定的小数位数进行四舍五入，减少浮点数精度误差
-	format := "%." + strconv.Itoa(bcdf.decimal) + "f"
-	formatted := fmt.Sprintf(format, value)
-
-	// 将格式化后的字符串转回浮点数
-	result, err := strconv.ParseFloat(formatted, 64)
-	if err != nil {
-		return value // 如果格式化失败，返回原始计算值
-	}
+	// 应用倍数和偏移量
 
 	return result
 }
 
-func (bcd *BCD) String() *BCDString {
-	temp := &BCDString{
-		encoder: bcd,
+// BIN   - INT     explain(int -> int)
+// BIN   - FLOAT   explain(int -> float)
+// BCD   - STRING  explain(string -> string)
+// BCD   - FLOAT   explain(string -> float)
+// BCD   - INT     explain(string -> int)
+// ASCII - STRING  explain(string -> string)
+
+type NewDataTyper interface {
+	Explain(data any) any
+	UnExplain(data any) any
+}
+
+func WithBinInteger(moflag bool, multiple int, offset int) CodecOption {
+	return &binInteger{moflag: moflag, multiple: multiple, offset: offset}
+}
+
+type binInteger struct {
+	moflag   bool
+	multiple int
+	offset   int
+}
+
+var (
+	_ CodecOption  = (*binInteger)(nil)
+	_ NewDataTyper = (*binInteger)(nil)
+)
+
+func (t *binInteger) Explain(data any) any {
+	srcInt := data.(int)
+	// 应用倍数和偏移量
+	result := srcInt
+	if t.moflag {
+		result = srcInt*t.multiple + t.offset
+	} else {
+		result = (srcInt + t.offset) * t.multiple
 	}
-	bcd.dataTyper = temp
-	return temp
+	return result
 }
-
-type BCDString struct {
-	encoder DecodeType
-}
-
-func (bcds *BCDString) Value(src any) any {
-	srcStr := src.(string)
-	return srcStr
-}
-
-func (bcds *BCDString) ExplainedValue(src any) any {
-	srcStr := src.(string)
-	return srcStr
-}
-
-type ASCII struct {
-	decoder    *DecoderImpl
-	order      binary.ByteOrder
-	byteLength int
-	dataTyper  DataTyper
-}
-
-func (ascii *ASCII) decode(data []byte, value any) error {
-	*value.(*string) = string(data)
-	return nil
-}
-
-func (ascii *ASCII) Decode(data []byte) any {
-	var value string
-	ascii.decode(data, &value)
-	return value
-}
-func (ascii *ASCII) SetByteLength(byteLength int) *ASCII {
-	ascii.byteLength = byteLength
-	ascii.decoder.AddLength(byteLength)
-	return ascii
-}
-func (ascii *ASCII) GetByteLength() int {
-	return ascii.byteLength
-}
-func (ascii *ASCII) String() *ASCIIString {
-	temp := &ASCIIString{
-		encoder: ascii,
+func (t *binInteger) UnExplain(data any) any {
+	srcFloat := data.(int)
+	result := 0
+	if t.moflag {
+		result = (srcFloat - t.offset) / t.multiple
+	} else {
+		result = (srcFloat / t.multiple) - t.offset
 	}
-	ascii.dataTyper = temp
-	return temp
+	return result
+}
+func (t *binInteger) Apply(config *FieldCodecConfig) {
+	config.ndt = t
+}
+func WithBinFloat(moflag bool, multiple float64, offset float64) CodecOption {
+	return &binFloat{moflag: moflag, multiple: multiple, offset: offset}
 }
 
-func (ascii *ASCII) ExplainedValue(src any) any {
-	return ascii.dataTyper.ExplainedValue(src)
+type binFloat struct {
+	moflag   bool
+	multiple float64
+	offset   float64
 }
 
-type ASCIIString struct {
-	encoder DecodeType
-}
+var (
+	_ CodecOption  = (*binFloat)(nil)
+	_ NewDataTyper = (*binFloat)(nil)
+)
 
-var _ DataTyper = (*ASCIIString)(nil)
-
-func (ascii *ASCIIString) Value(src any) any {
-	srcStr := src.(string)
-	return srcStr
-}
-
-func (ascii *ASCIIString) ExplainedValue(src any) any {
-	return ascii.Value(src)
-}
-
-type CP56TIME2A struct {
-	decoder    *DecoderImpl
-	order      binary.ByteOrder
-	byteLength int
-	dataTyper  DataTyper
-}
-
-func (cp56 *CP56TIME2A) decode(data []byte, value any) error {
-	*value.(*string) = ParseCP56time2a(data)
-	return nil
-}
-
-func (cp56 *CP56TIME2A) Decode(data []byte) any {
-	var value string
-	cp56.decode(data, &value)
-	return value
-}
-
-func (cp56 *CP56TIME2A) ExplainedValue(src any) any {
-	return cp56.dataTyper.ExplainedValue(src)
-}
-
-func (cp56 *CP56TIME2A) SetByteLength(byteLength int) *CP56TIME2A {
-	cp56.byteLength = byteLength
-	cp56.decoder.AddLength(byteLength)
-	return cp56
-}
-func (cp56 *CP56TIME2A) GetByteLength() int {
-	return cp56.byteLength
-}
-func (cp56 *CP56TIME2A) String() *CP56TIME2AString {
-	return &CP56TIME2AString{
-		decoder: cp56,
+func (t *binFloat) Explain(data any) any {
+	srcInt := data.(int)
+	result := 0.0
+	if t.moflag {
+		result = float64(srcInt)*t.multiple + t.offset
+	} else {
+		result = (float64(srcInt) + t.offset) * t.multiple
 	}
+	return result
 }
 
-type CP56TIME2AString struct {
-	decoder DecodeType
+func (t *binFloat) UnExplain(data any) any {
+	srcFloat := data.(float64)
+	result := 0
+	if t.moflag {
+		result = int((srcFloat - t.offset) / t.multiple)
+	} else {
+		result = int((srcFloat / t.multiple) - t.offset)
+	}
+	return result
 }
 
-//Encoder
-
-// type EncoderImpl struct {
-// 	byteLength int
-// 	fh         *FucntionHandler
-// 	order      binary.ByteOrder
-// }
-
-// func (encoder *EncoderImpl) BIN() *BIN {
-// 	temp := &BIN{
-// 		encoder: encoder,
-// 		order:   encoder.order,
-// 	}
-// 	return temp
-// }
+func (t *binFloat) Apply(config *FieldCodecConfig) {
+	config.ndt = t
+}
