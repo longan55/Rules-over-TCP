@@ -108,11 +108,11 @@ func setHandlerConfig(builder *ProtocolBuilder) {
 	handlerConfig := NewHandlerConfig()
 	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
 	fh := new(FunctionHandler)
-	fh.AddField("a", WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(4), WithBinInteger(true, 1, 0))
-	fh.AddField("b", WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(4), WithBinInteger(true, 1, 0))
-	fh.AddField("c", WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithBinInteger(true, 2, 0))
-	fh.AddField("d", WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithBinFloat(true, 0.01, 0))
-	fh.AddField("e", WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(1), WithBinInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
+	fh.AddField("a", WithBIN(binary.BigEndian), WithLength(4), WithBinInteger(true, 1, 0))
+	fh.AddField("b", WithBIN(binary.BigEndian), WithLength(4), WithBinInteger(true, 1, 0))
+	fh.AddField("c", WithBIN(binary.BigEndian), WithLength(2), WithBinInteger(true, 2, 0))
+	fh.AddField("d", WithBIN(binary.BigEndian), WithLength(2), WithBinFloat(true, 0.01, 0))
+	fh.AddField("e", WithBIN(binary.BigEndian), WithLength(1), WithBinInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
 	fh.SetHandle(func(parsedData map[string]ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
