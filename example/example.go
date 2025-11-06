@@ -68,16 +68,20 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		fmt.Println("parsedData:", parsedData)
 		return nil
 	})
-	// //2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
-	// fh1 := new(FunctionHandler)
+	//2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
+	fh1 := new(rot.FunctionHandler)
+	fh1.AddField("code", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdString())
+	fh1.AddField("price", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdFloat(true, 0.0001, 0))
+	fh1.AddField("intPrice", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdInteger(true, 1, 0))
+
 	// fh1.NewDecoder("code", binary.BigEndian).BCD().SetByteLength(4).String()
 	// fh1.NewDecoder("price", binary.BigEndian).BCD().SetByteLength(4).Float().DecimalPlace(4)
 	// fh1.NewDecoder("intPrice", binary.BigEndian).BCD().SetByteLength(4).Integer()
 
-	// fh1.SetHandle(func(parsedData map[string]ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
+	fh1.SetHandle(func(parsedData map[string]rot.ParsedData) error {
+		fmt.Println("parsedData:", parsedData)
+		return nil
+	})
 	// //3. ASCII编码，仅解释为字符串
 	// fh2 := new(FunctionHandler)
 	// fh2.NewDecoder("ascii", binary.BigEndian).ASCII().SetByteLength(4).String()
@@ -87,7 +91,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	// })
 	//end
 	handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)
-	// handlerConfig.AddHandler(FunctionCode(0x02), fh1)
+	handlerConfig.AddHandler(rot.FunctionCode(0x02), fh1)
 	// handlerConfig.AddHandler(FunctionCode(0x03), fh2)
 	builder.AddHandlerConfig(handlerConfig)
 }

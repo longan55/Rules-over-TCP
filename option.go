@@ -153,6 +153,13 @@ func WithBCD(order binary.ByteOrder) CodecOption {
 		order: order,
 	}}
 }
+func WithBcdInteger(moflag bool, multiple int, offset int) CodecOption {
+	return &bcdInteger{moflag: moflag, multiple: multiple, offset: offset}
+}
+func WithBcdFloat(moflag bool, multiple float64, offset float64) CodecOption {
+	return &bcdFloat{moflag: moflag, multiple: multiple, offset: offset}
+}
+
 func WithASCII(order binary.ByteOrder) CodecOption {
 	return &codecOption{codec: &CodecASCII{}}
 }
