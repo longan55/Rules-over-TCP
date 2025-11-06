@@ -74,10 +74,6 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	fh1.AddField("price", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdFloat(true, 0.0001, 0))
 	fh1.AddField("intPrice", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdInteger(true, 1, 0))
 
-	// fh1.NewDecoder("code", binary.BigEndian).BCD().SetByteLength(4).String()
-	// fh1.NewDecoder("price", binary.BigEndian).BCD().SetByteLength(4).Float().DecimalPlace(4)
-	// fh1.NewDecoder("intPrice", binary.BigEndian).BCD().SetByteLength(4).Integer()
-
 	fh1.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
 		return nil
