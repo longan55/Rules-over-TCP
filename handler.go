@@ -55,12 +55,19 @@ func (fh *FunctionHandler) Parse2(data []byte) (map[string]ParsedData, error) {
 	for i, impl := range fh.fccs {
 		fieldName := fh.fieldNames[i]
 		length := impl.length
+
+		// 检查偏移量是否越界
+		if offset+length > len(data) {
+			return nil, fmt.Errorf("field %s exceeds data bounds", fieldName)
+		}
+
 		input := data[offset : offset+length]
 		value, err := impl.Decode(input)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode field %s: %w", fieldName, err)
 		}
 		result[fieldName] = *value
+		offset += length
 	}
 	return result, nil
 }

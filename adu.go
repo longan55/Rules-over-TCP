@@ -60,6 +60,22 @@ func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FunctionHandler {
 }
 
 func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
+	// 添加协议元素验证
+	if len(duBuilder.du.elements) == 0 {
+		return nil, errors.New("协议元素不能为空")
+	}
+
+	// 验证第一个元素必须是起始符
+	if duBuilder.du.elements[0].Type() != Preamble {
+		return nil, errors.New("第一个协议元素必须是起始符")
+	}
+
+	// 验证最后一个元素必须是校验码
+	lastIdx := len(duBuilder.du.elements) - 1
+	if duBuilder.du.elements[lastIdx].Type() != Checksum {
+		return nil, errors.New("最后一个协议元素必须是校验码")
+	}
+
 	fmt.Println("协议元素组成部分：")
 	fmt.Println("------------------------------------------------------")
 	fmt.Printf("元素名称\t元素类型\t元素长度\t默认值\n")
@@ -69,7 +85,6 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 		fmt.Printf("%s\t%v\t\t%d\t\t%#x\n", element.GetName(), element.Type(), element.Length(), element.RealValue())
 	}
 	fmt.Println("------------------------------------------------------")
-	//TODO: 校验元素是否符合协议规范
 	return duBuilder.du, nil
 }
 
