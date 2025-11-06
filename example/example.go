@@ -78,16 +78,16 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 		fmt.Println("parsedData:", parsedData)
 		return nil
 	})
-	// //3. ASCII编码，仅解释为字符串
-	// fh2 := new(FunctionHandler)
-	// fh2.NewDecoder("ascii", binary.BigEndian).ASCII().SetByteLength(4).String()
-	// fh2.SetHandle(func(parsedData map[string]ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
+	//3. ASCII编码，仅解释为字符串
+	fh2 := new(rot.FunctionHandler)
+	fh2.AddField("ascii", rot.WithASCII(binary.BigEndian), rot.WithLength(4), rot.WithBcdString())
+	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
+		fmt.Println("parsedData:", parsedData)
+		return nil
+	})
 	//end
 	handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)
 	handlerConfig.AddHandler(rot.FunctionCode(0x02), fh1)
-	// handlerConfig.AddHandler(FunctionCode(0x03), fh2)
+	handlerConfig.AddHandler(rot.FunctionCode(0x03), fh2)
 	builder.AddHandlerConfig(handlerConfig)
 }
