@@ -8,15 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"reflect"
 )
 
 func NewProtocolBuilder() *ProtocolBuilder {
 	return &ProtocolBuilder{
-		du: &ProtocolImpl{
+		du: &ProtocolDataUnit{
 			elements: make([]ProtocolElement, 0, 3),
 		},
-		fh: make(map[FunctionCode]*FunctionHandler, 32),
 	}
 }
 
@@ -27,8 +25,7 @@ func NewProtocolBuilder() *ProtocolBuilder {
 //4. 最后一个元素必须是校验码元素
 
 type ProtocolBuilder struct {
-	du *ProtocolImpl
-	fh map[FunctionCode]*FunctionHandler
+	du *ProtocolDataUnit
 }
 
 func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolBuilder {
@@ -55,7 +52,7 @@ func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FunctionHandler {
 	fh := &FunctionHandler{
 		fc: fc,
 	}
-	duBuilder.fh[fc] = fh
+	duBuilder.du.AddHandler(fc, fh)
 	return fh
 }
 
@@ -92,14 +89,12 @@ type Protocol interface {
 	AddHandler(fc FunctionCode, f *FunctionHandler)
 	Handle(ctx context.Context, conn net.Conn)
 	SetDataLength(length int)
-	//Parse(adu [][]byte) error
-	// Serialize(f *FucntionHandler) []byte
 }
 
-var _ Protocol = (*ProtocolImpl)(nil)
+var _ Protocol = (*ProtocolDataUnit)(nil)
 
-// dph 应用数据单元 结构体
-type ProtocolImpl struct {
+// ProtocolDataUnit 协议数据单元
+type ProtocolDataUnit struct {
 	counts uint64
 	//当前数据单元的 数据域长度
 	dataLength   int
@@ -110,12 +105,11 @@ type ProtocolImpl struct {
 
 	conn net.Conn
 	//存储协议元素信息
-	elements []ProtocolElement
-	// parserMap  map[FunctionCode]Parser
+	elements   []ProtocolElement
 	handlerMap map[FunctionCode]*FunctionHandler
 }
 
-func (dph *ProtocolImpl) AddHandler(fc FunctionCode, f *FunctionHandler) {
+func (dph *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
 	if dph.handlerMap == nil {
 		dph.handlerMap = make(map[FunctionCode]*FunctionHandler)
 	}
@@ -123,7 +117,7 @@ func (dph *ProtocolImpl) AddHandler(fc FunctionCode, f *FunctionHandler) {
 }
 
 // 字段顺序已有---》新增处理顺序
-func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
+func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 	dph.conn = conn
 	for {
 		select {
@@ -214,15 +208,8 @@ func (dph *ProtocolImpl) Handle(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (dph *ProtocolImpl) SetDataLength(length int) {
+func (dph *ProtocolDataUnit) SetDataLength(length int) {
 	dph.dataLength = length
-}
-
-func (dph *ProtocolImpl) Info() {
-	for _, v := range dph.elements {
-		of := reflect.TypeOf(v)
-		fmt.Println("类型:", of, " 长度:", v.Length())
-	}
 }
 
 // ProtocolElement 元素接口
@@ -233,10 +220,9 @@ type ProtocolElement interface {
 	Type() ProtocolElementType
 	RealValue() []byte
 	Length() int
-	// GetScale() uint8
 	GetOrder() binary.ByteOrder
-	// GetRange() (start, end uint8)
-	Deal([][]byte) (ProtocolElementType, any, error)
+	//fullData按元素切割整个数据单元，分成多个切片
+	Deal(fullData [][]byte) (ProtocolElementType, any, error)
 	ChecksumType() uint8
 }
 
@@ -328,9 +314,6 @@ func NewStarter(start []byte) ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		// if len(fullData) < element.Length() {
-		// 	return element.Type(), nil, errors.New("数据长度小于起始符长度")
-		// }
 		if !bytes.Equal(fullData[0][:element.Length()], element.RealValue()) {
 			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.RealValue(), fullData[0][:element.Length()])
 		}
@@ -351,9 +334,6 @@ func NewDataLen(selfLength int) ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		// if len(fullData) < element.Length() {
-		// 	return element.Type(), nil, errors.New("数据长度小于帧长度字段长度")
-		// }
 		data := fullData[element.GetIndex()]
 		length := Bin2Int(data, element.GetOrder())
 		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
@@ -392,9 +372,6 @@ func NewFuncCode() ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		// if len(fullData) < element.Length() {
-		// 	return element.Type(), nil, errors.New("数据长度小于功能码字段长度")
-		// }
 		fmt.Printf("功能码:\t\t\t[%#0X]\n", fullData[element.GetIndex()])
 		functionCode := FunctionCode(fullData[element.GetIndex()][0])
 		return element.Type(), functionCode, nil
@@ -412,9 +389,6 @@ func NewPayload() ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		// if len(fullData) < element.Length() {
-		// 	return element.Type(), nil, errors.New("数据长度小于帧负载字段长度")
-		// }
 		fmt.Printf("帧负载:\t\t\t[% #0X]\n", fullData[element.GetIndex()])
 		return element.Type(), fullData[element.GetIndex()], nil
 	}
@@ -433,9 +407,6 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		// if len(fullData) < element.Length() {
-		// 	return element.Type(), nil, errors.New("数据长度小于校验码字段长度")
-		// }
 		fmt.Printf("校 验 码:\t\t[% #0X]\n", fullData[element.GetIndex()])
 		checksum0 := fullData[element.GetIndex()]
 		//将各切片连接为一个切片
