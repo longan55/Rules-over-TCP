@@ -31,42 +31,39 @@ func NewHandlerConfig() *HandlerConfig {
 }
 
 type FunctionHandler struct {
-	length     int
-	fc         FunctionCode
-	handler    Handler
-	fieldNames []string
+	length  int
+	fc      FunctionCode
+	handler Handler
 
 	fccs []*FieldCodecConfig
 }
 
 func (fh *FunctionHandler) AddField(fieldName string, options ...CodecOption) *FieldCodecConfig {
-	fh.fieldNames = append(fh.fieldNames, fieldName)
 	fcc := NewFieldCodecConfig(fieldName, options...)
 	fh.fccs = append(fh.fccs, fcc)
 	return fcc
 }
 
-func (fh *FunctionHandler) Parse2(data []byte) (map[string]ParsedData, error) {
+func (fh *FunctionHandler) Parse(data []byte) (map[string]ParsedData, error) {
 	if len(data) != fh.length {
 		return nil, fmt.Errorf("data length %d is not equal to function handler length %d", len(data), fh.length)
 	}
 	result := make(map[string]ParsedData, len(fh.fccs))
 	offset := 0
-	for i, impl := range fh.fccs {
-		fieldName := fh.fieldNames[i]
+	for _, impl := range fh.fccs {
 		length := impl.length
 
 		// 检查偏移量是否越界
 		if offset+length > len(data) {
-			return nil, fmt.Errorf("field %s exceeds data bounds", fieldName)
+			return nil, fmt.Errorf("field %s exceeds data bounds", impl.name)
 		}
 
 		input := data[offset : offset+length]
 		value, err := impl.Decode(input)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode field %s: %w", fieldName, err)
+			return nil, fmt.Errorf("failed to decode field %s: %w", impl.name, err)
 		}
-		result[fieldName] = *value
+		result[impl.name] = *value
 		offset += length
 	}
 	return result, nil
@@ -84,17 +81,12 @@ func (fh *FunctionHandler) Handle(data []byte) error {
 	if fh.handler == nil {
 		return fmt.Errorf("handler is nil")
 	}
-	parsed, err := fh.Parse2(data)
+	parsed, err := fh.Parse(data)
 	if err != nil {
 		return err
 	}
 	return fh.handler(parsed)
 }
-
-// FunctionHandler Parse() 解析函数，解码所有字段得到总的数据
-// Decoder/DecoderImpl     解码函数，
-// BIN/BCD/ASCII/CP56TIME2A
-// BINInteger/BCDInteger...
 
 type ParsedData struct {
 	Bytes     []byte
