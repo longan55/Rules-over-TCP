@@ -2,18 +2,27 @@ package rot
 
 import (
 	"encoding/binary"
+	"sync"
 )
 
-var checksumMap = map[uint8]func([]byte) []byte{
-	0: ModBusCRC,
-}
+var (
+	checksumMap = map[uint8]func([]byte) []byte{
+		0: ModBusCRC,
+	}
+	checksumMutex sync.RWMutex
+)
 
 func RegisterChecksum(checksumType uint8, checksumFunc func([]byte) []byte) {
+	checksumMutex.Lock()
+	defer checksumMutex.Unlock()
 	checksumMap[checksumType] = checksumFunc
 }
 
 func CheckSum(checksumType uint8, data []byte) []byte {
-	if checksumFunc, ok := checksumMap[checksumType]; ok {
+	checksumMutex.RLock()
+	checksumFunc, ok := checksumMap[checksumType]
+	checksumMutex.RUnlock()
+	if ok {
 		return checksumFunc(data)
 	}
 	return nil

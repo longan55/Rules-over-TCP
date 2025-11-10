@@ -3,12 +3,10 @@ package rot
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -165,45 +163,6 @@ func Float64ToBin(f float64, byteLength byte, bit int) []byte {
 	return Int2Bin(i, byteLength, binary.LittleEndian)
 }
 
-// Hex2Str 不用这个函数 使用hex.EncodeToString()
-func Hex2Str(b []byte) string {
-	var s = ""
-	for _, v := range b {
-		s += fmt.Sprintf("%x", v)
-	}
-	return strings.ToUpper(s)
-}
-
-func Str2Hex(str string) []byte {
-	b, err := hex.DecodeString(str)
-	if err != nil {
-		fmt.Printf("err:%v\n", err)
-		return nil
-	}
-	return b
-}
-
-// Bcd2Str BCD码->数值类型->数值字符串
-func Bcd2Str(b []byte) string {
-	return hex.EncodeToString(b)
-}
-
-// Str2Bcd 数值字符串->数值类型->BCD码
-func Str2Bcd(str string) []byte {
-	b, err := hex.DecodeString(str)
-	if err != nil {
-		fmt.Printf("err:%v\n", err)
-		return nil
-	}
-	return b
-	//var rNumber = str
-	//for i := 0; i < 8-len(str); i++ {
-	//	rNumber = "f" + rNumber
-	//}
-	//bcd := Hex2Byte(rNumber)
-	//return bcd
-}
-
 func Hex2Byte(str string) []byte {
 	l := len(str)
 	bHex := make([]byte, len(str)/2)
@@ -328,22 +287,22 @@ func Int2Bin(n int, bytesLength byte, order binary.ByteOrder) []byte {
 		binary.Write(bytesBuffer, order, &tmp)
 		return bytesBuffer.Bytes()
 	case 5:
-		tmp := n
+		tmp := int64(n)
 		bytesBuffer := bytes.NewBuffer([]byte{})
 		binary.Write(bytesBuffer, order, &tmp)
 		return bytesBuffer.Bytes()[0:5]
 	case 6:
-		tmp := n
+		tmp := int64(n)
 		bytesBuffer := bytes.NewBuffer([]byte{})
 		binary.Write(bytesBuffer, order, &tmp)
 		return bytesBuffer.Bytes()[0:6]
 	case 7:
-		tmp := n
+		tmp := int64(n)
 		bytesBuffer := bytes.NewBuffer([]byte{})
 		binary.Write(bytesBuffer, order, &tmp)
 		return bytesBuffer.Bytes()[0:7]
 	case 8:
-		tmp := n
+		tmp := int64(n)
 		bytesBuffer := bytes.NewBuffer([]byte{})
 		binary.Write(bytesBuffer, order, &tmp)
 		return bytesBuffer.Bytes()
