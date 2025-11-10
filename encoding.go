@@ -179,6 +179,29 @@ func Hex2Byte(str string) []byte {
 	return bHex
 }
 
+// func Hex2Byte(str string) ([]byte, error) {
+// 	// 验证输入长度
+// 	strLen := len(str)
+// 	if strLen%2 != 0 {
+// 		return nil, errors.New("hex string has odd length")
+// 	}
+
+// 	// 预分配结果数组
+// 	result := make([]byte, strLen/2)
+
+// 	// 解析每个字节
+// 	for i := 0; i < strLen; i += 2 {
+// 		// 使用strconv.ParseUint直接解析两个字符，避免字符串拼接
+// 		val, err := strconv.ParseUint(str[i:i+2], 16, 8)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("invalid hex character at position %d: %v", i, err)
+// 		}
+// 		result[i/2] = byte(val)
+// 	}
+
+// 	return result, nil
+// }
+
 func Bin2Int(b []byte, orders ...binary.ByteOrder) int {
 	var order binary.ByteOrder = binary.BigEndian // 默认使用大端序，与Int2Bin保持一致
 	if orders != nil {
