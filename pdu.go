@@ -8,7 +8,23 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 )
+
+var (
+	once         sync.Once
+	defaultOrder binary.ByteOrder = binary.BigEndian
+)
+
+func SetDefaultOrder(order binary.ByteOrder) {
+	once.Do(func() {
+		defaultOrder = order
+	})
+}
+
+func DefaultOrder() binary.ByteOrder {
+	return defaultOrder
+}
 
 func NewProtocolBuilder() *ProtocolBuilder {
 	return &ProtocolBuilder{
@@ -26,6 +42,11 @@ func NewProtocolBuilder() *ProtocolBuilder {
 
 type ProtocolBuilder struct {
 	du *ProtocolDataUnit
+}
+
+func (duBuilder *ProtocolBuilder) SetDefaultOrder(order binary.ByteOrder) *ProtocolBuilder {
+	defaultOrder = order
+	return duBuilder
 }
 
 func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolBuilder {

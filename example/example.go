@@ -13,7 +13,8 @@ import (
 func main() {
 	//处理器构建器
 	builder := rot.NewProtocolBuilder()
-
+	//default is BigEndian, if is BigEndian,this can be not called
+	builder.SetDefaultOrder(binary.BigEndian)
 	//构建处理器
 	builder.AddElement(rot.NewStarter([]byte{0x68})).
 		AddElement(rot.NewDataLen(1)).
@@ -54,11 +55,11 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	handlerConfig := rot.NewHandlerConfig()
 	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
 	fh := new(rot.FunctionHandler)
-	fh.AddField("a", rot.WithBIN(binary.BigEndian), rot.WithLength(4), rot.WithBinInteger(true, 1, 0))
-	fh.AddField("b", rot.WithBIN(binary.BigEndian), rot.WithLength(4), rot.WithBinInteger(true, 1, 0))
-	fh.AddField("c", rot.WithBIN(binary.BigEndian), rot.WithLength(2), rot.WithBinInteger(true, 2, 0))
-	fh.AddField("d", rot.WithBIN(binary.BigEndian), rot.WithLength(2), rot.WithBinFloat(true, 0.01, 0))
-	fh.AddField("e", rot.WithBIN(binary.BigEndian), rot.WithLength(1), rot.WithBinInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
+	fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithBinInteger(true, 1, 0))
+	fh.AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithBinInteger(true, 1, 0))
+	fh.AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithBinInteger(true, 2, 0))
+	fh.AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithBinFloat(true, 0.01, 0))
+	fh.AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithBinInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
 	fh.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
@@ -66,9 +67,9 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	})
 	//2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
 	fh1 := new(rot.FunctionHandler)
-	fh1.AddField("code", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdString())
-	fh1.AddField("price", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdFloat(true, 0.0001, 0))
-	fh1.AddField("intPrice", rot.WithBCD(binary.BigEndian), rot.WithLength(4), rot.WithBcdInteger(true, 1, 0))
+	fh1.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithBcdString())
+	fh1.AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithBcdFloat(true, 0.0001, 0))
+	fh1.AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithBcdInteger(true, 1, 0))
 
 	fh1.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
@@ -76,7 +77,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	})
 	//3. ASCII编码，仅解释为字符串
 	fh2 := new(rot.FunctionHandler)
-	fh2.AddField("ascii", rot.WithASCII(binary.BigEndian), rot.WithLength(4), rot.WithBcdString())
+	fh2.AddField("ascii", rot.WithAscii(binary.BigEndian), rot.WithLength(4), rot.WithBcdString())
 	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
 		return nil

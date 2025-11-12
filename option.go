@@ -143,16 +143,30 @@ func WithCodec(codec Codec) CodecOption {
 	return &codecOption{codec}
 }
 
-func WithBIN(order binary.ByteOrder) CodecOption {
+func WithBin() CodecOption {
+	return &codecOption{codec: &CodecBIN{
+		order: DefaultOrder(),
+	}}
+}
+
+func WithBinWithOrder(order binary.ByteOrder) CodecOption {
 	return &codecOption{codec: &CodecBIN{
 		order: order,
 	}}
 }
-func WithBCD(order binary.ByteOrder) CodecOption {
+
+func WithBcd() CodecOption {
+	return &codecOption{codec: &CodecBCD{
+		order: DefaultOrder(),
+	}}
+}
+
+func WithBcdWithOrder(order binary.ByteOrder) CodecOption {
 	return &codecOption{codec: &CodecBCD{
 		order: order,
 	}}
 }
+
 func WithBcdInteger(moflag bool, multiple int, offset int) CodecOption {
 	return &bcdInteger{moflag: moflag, multiple: multiple, offset: offset}
 }
@@ -160,7 +174,7 @@ func WithBcdFloat(moflag bool, multiple float64, offset float64) CodecOption {
 	return &bcdFloat{moflag: moflag, multiple: multiple, offset: offset}
 }
 
-func WithASCII(order binary.ByteOrder) CodecOption {
+func WithAscii(order binary.ByteOrder) CodecOption {
 	return &codecOption{codec: &CodecASCII{}}
 }
 
