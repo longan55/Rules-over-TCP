@@ -59,19 +59,6 @@ func NewFieldCodecConfig(name string, options ...CodecOption) *FieldCodecConfig 
 	if config.codec == nil {
 		config.codec = NewCodecBIN(binary.BigEndian)
 	}
-
-	// 根据编解码器类型设置默认的数据类型解释器
-	// if config.dataTyper == nil {
-	// 	switch config.codec.(type) {
-	// 	case *CodecBIN:
-	// 		config.dataTyper = &BINInteger{}
-	// 	case *CodecBCD:
-	// 		config.dataTyper = &BCDString{}
-	// 	case *CodecASCII:
-	// 		config.dataTyper = &ASCIIString{}
-	// 	}
-	// }
-
 	return config
 }
 func (config *FieldCodecConfig) Decode(data []byte) (*ParsedData, error) {
@@ -167,9 +154,14 @@ func WithBcdWithOrder(order binary.ByteOrder) CodecOption {
 	}}
 }
 
-func WithBcdInteger(moflag bool, multiple int, offset int) CodecOption {
-	return &bcdInteger{moflag: moflag, multiple: multiple, offset: offset}
+func WithInteger(moflag bool, multiple int, offset int) CodecOption {
+	return &binInteger{moflag: moflag, multiple: multiple, offset: offset}
 }
+
+func WithBinFloat(moflag bool, multiple float64, offset float64) CodecOption {
+	return &binFloat{moflag: moflag, multiple: multiple, offset: offset}
+}
+
 func WithBcdFloat(moflag bool, multiple float64, offset float64) CodecOption {
 	return &bcdFloat{moflag: moflag, multiple: multiple, offset: offset}
 }

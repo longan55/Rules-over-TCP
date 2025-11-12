@@ -11,11 +11,11 @@ import (
 )
 
 func TestCodec2(t *testing.T) {
-	fc1 := NewFieldCodecConfig("1", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinInteger(true, 1, 0))
-	fc2 := NewFieldCodecConfig("2", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinInteger(true, 1, -10))
-	fc3 := NewFieldCodecConfig("3", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinInteger(true, 2, -10))
-	fc4 := NewFieldCodecConfig("4", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinInteger(false, 2, -10))
-	fc41 := NewFieldCodecConfig("41", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
+	fc1 := NewFieldCodecConfig("1", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(true, 1, 0))
+	fc2 := NewFieldCodecConfig("2", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(true, 1, -10))
+	fc3 := NewFieldCodecConfig("3", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(true, 2, -10))
+	fc4 := NewFieldCodecConfig("4", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(false, 2, -10))
+	fc41 := NewFieldCodecConfig("41", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
 	fc5 := NewFieldCodecConfig("5", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinFloat(true, 0.01, 0))
 	fc6 := NewFieldCodecConfig("6", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinFloat(true, 0.01, 0.1))
@@ -42,10 +42,10 @@ func TestCodec2(t *testing.T) {
 }
 
 func TestCodec2_Encode(t *testing.T) {
-	fc1 := NewFieldCodecConfig("1", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithBinInteger(true, 1, 0))
-	fc2 := NewFieldCodecConfig("2", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithBinInteger(true, 1, -10))
-	fc3 := NewFieldCodecConfig("3", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithBinInteger(true, 2, -10))
-	fc4 := NewFieldCodecConfig("4", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithBinInteger(false, 2, -10))
+	fc1 := NewFieldCodecConfig("1", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(true, 1, 0))
+	fc2 := NewFieldCodecConfig("2", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(true, 1, -10))
+	fc3 := NewFieldCodecConfig("3", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(true, 2, -10))
+	fc4 := NewFieldCodecConfig("4", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(false, 2, -10))
 
 	fcs := []*FieldCodecConfig{fc1, fc2, fc3, fc4}
 	ds := []int{
@@ -108,11 +108,11 @@ func setHandlerConfig(builder *ProtocolBuilder) {
 	handlerConfig := NewHandlerConfig()
 	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
 	fh := new(FunctionHandler)
-	fh.AddField("a", WithBin(), WithLength(4), WithBinInteger(true, 1, 0))
-	fh.AddField("b", WithBin(), WithLength(4), WithBinInteger(true, 1, 0))
-	fh.AddField("c", WithBin(), WithLength(2), WithBinInteger(true, 2, 0))
+	fh.AddField("a", WithBin(), WithLength(4), WithInteger(true, 1, 0))
+	fh.AddField("b", WithBin(), WithLength(4), WithInteger(true, 1, 0))
+	fh.AddField("c", WithBin(), WithLength(2), WithInteger(true, 2, 0))
 	fh.AddField("d", WithBin(), WithLength(2), WithBinFloat(true, 0.01, 0))
-	fh.AddField("e", WithBin(), WithLength(1), WithBinInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
+	fh.AddField("e", WithBin(), WithLength(1), WithInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
 	fh.SetHandle(func(parsedData map[string]ParsedData) error {
 		fmt.Println("parsedData:", parsedData)

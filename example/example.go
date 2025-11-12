@@ -55,11 +55,11 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	handlerConfig := rot.NewHandlerConfig()
 	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
 	fh := new(rot.FunctionHandler)
-	fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithBinInteger(true, 1, 0))
-	fh.AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithBinInteger(true, 1, 0))
-	fh.AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithBinInteger(true, 2, 0))
+	fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
+	fh.AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
+	fh.AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithInteger(true, 2, 0))
 	fh.AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithBinFloat(true, 0.01, 0))
-	fh.AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithBinInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
+	fh.AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
 	fh.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
@@ -69,7 +69,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	fh1 := new(rot.FunctionHandler)
 	fh1.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithBcdString())
 	fh1.AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithBcdFloat(true, 0.0001, 0))
-	fh1.AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithBcdInteger(true, 1, 0))
+	fh1.AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
 
 	fh1.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)

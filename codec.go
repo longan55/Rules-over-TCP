@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 )
 
@@ -70,16 +69,14 @@ func (c *CodecBCD) Configure() {
 }
 
 func (c *CodecBCD) Encode(data any, byteLength int) ([]byte, error) {
-	// 根据数据类型处理编码
-	v, ok := data.(string)
-	if !ok {
+	switch v := data.(type) {
+	case int:
+		return hex.DecodeString(strconv.Itoa(v))
+	case string:
+		return hex.DecodeString(v)
+	default:
 		return nil, fmt.Errorf("unsupported data type for BCD encoding: %T", data)
 	}
-	bcdBytes, err := hex.DecodeString(v)
-	if err != nil {
-		return nil, err
-	}
-	return bcdBytes, nil
 }
 
 func (c *CodecBCD) Decode(data []byte) (any, error) {
@@ -130,28 +127,6 @@ func (c *CodecASCII) Decode(data []byte) (any, error) {
 	return string(data), nil
 }
 
-// BINFloat BIN浮点数解释器
-type BINFloat1 struct {
-	decimal int
-}
-
-var _ DataTyper = (*BINFloat1)(nil)
-
-func (t *BINFloat1) Value(data any) any {
-	return data
-}
-
-func (t *BINFloat1) ExplainedValue(data any) any {
-	srcInt := data.(int)
-	decimal := t.decimal
-	// 计算浮点数
-	result := float64(srcInt) / math.Pow10(decimal)
-
-	// 应用倍数和偏移量
-
-	return result
-}
-
 // BIN   - INT     explain(int -> int)
 // BIN   - FLOAT   explain(int -> float)
 // BCD   - STRING  explain(string -> string)
@@ -162,10 +137,6 @@ func (t *BINFloat1) ExplainedValue(data any) any {
 type NewDataTyper interface {
 	Explain(data any) any
 	UnExplain(data any) any
-}
-
-func WithBinInteger(moflag bool, multiple int, offset int) CodecOption {
-	return &binInteger{moflag: moflag, multiple: multiple, offset: offset}
 }
 
 type binInteger struct {
@@ -180,16 +151,27 @@ var (
 )
 
 func (t *binInteger) Explain(data any) any {
-	srcInt := data.(int)
-	// 应用倍数和偏移量
-	result := srcInt
-	if t.moflag {
-		result = srcInt*t.multiple + t.offset
-	} else {
-		result = (srcInt + t.offset) * t.multiple
+	var i int
+	switch v := data.(type) {
+	default:
+		panic(fmt.Sprintf("unsupported data type for binInteger: %T", data))
+	case int:
+		i = v
+	case string:
+		srcInt, err := strconv.Atoi(v)
+		if err != nil {
+			return nil
+		}
+		i = srcInt
 	}
-	return result
+	// 应用倍数和偏移量
+	if t.moflag {
+		return i*t.multiple + t.offset
+	} else {
+		return (i + t.offset) * t.multiple
+	}
 }
+
 func (t *binInteger) UnExplain(data any) any {
 	srcFloat := data.(int)
 	result := 0
@@ -202,9 +184,6 @@ func (t *binInteger) UnExplain(data any) any {
 }
 func (t *binInteger) Apply(config *FieldCodecConfig) {
 	config.ndt = t
-}
-func WithBinFloat(moflag bool, multiple float64, offset float64) CodecOption {
-	return &binFloat{moflag: moflag, multiple: multiple, offset: offset}
 }
 
 type binFloat struct {
@@ -241,46 +220,6 @@ func (t *binFloat) UnExplain(data any) any {
 }
 
 func (t *binFloat) Apply(config *FieldCodecConfig) {
-	config.ndt = t
-}
-
-type bcdInteger struct {
-	moflag   bool
-	multiple int
-	offset   int
-}
-
-var (
-	_ CodecOption  = (*bcdInteger)(nil)
-	_ NewDataTyper = (*bcdInteger)(nil)
-)
-
-func (t *bcdInteger) Explain(data any) any {
-	str := data.(string)
-	// 应用倍数和偏移量
-	srcInt, err := strconv.Atoi(str)
-	if err != nil {
-		return nil
-	}
-	result := srcInt
-	if t.moflag {
-		result = srcInt*t.multiple + t.offset
-	} else {
-		result = (srcInt + t.offset) * t.multiple
-	}
-	return result
-}
-func (t *bcdInteger) UnExplain(data any) any {
-	srcFloat := data.(int)
-	result := 0
-	if t.moflag {
-		result = (srcFloat - t.offset) / t.multiple
-	} else {
-		result = (srcFloat / t.multiple) - t.offset
-	}
-	return strconv.Itoa(result)
-}
-func (t *bcdInteger) Apply(config *FieldCodecConfig) {
 	config.ndt = t
 }
 
