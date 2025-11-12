@@ -33,13 +33,14 @@ func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolB
 	return duBuilder
 }
 
+// AddCryptConfig 添加加密配置,应该只被调用一次
 func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *ProtocolBuilder {
 	duBuilder.du.cryptLib = cryptConfig.GetCryptMap()
 	return duBuilder
 }
 
-func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler) *ProtocolBuilder {
-	duBuilder.du.AddHandler(fc, f)
+func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, crypt CryptFunc) *ProtocolBuilder {
+	duBuilder.du.AddCrypt(cryptFlag, crypt)
 	return duBuilder
 }
 
@@ -48,6 +49,10 @@ func (duBuilder *ProtocolBuilder) AddHandlerConfig(config *HandlerConfig) *Proto
 	return duBuilder
 }
 
+func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler) *ProtocolBuilder {
+	duBuilder.du.AddHandler(fc, f)
+	return duBuilder
+}
 func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FunctionHandler {
 	fh := &FunctionHandler{
 		fc: fc,
@@ -109,11 +114,22 @@ type ProtocolDataUnit struct {
 	handlerMap map[FunctionCode]*FunctionHandler
 }
 
+func (dph *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt CryptFunc) {
+	if dph.cryptLib == nil {
+		dph.cryptLib = make(map[int]CryptFunc)
+	}
+	dph.cryptLib[cryptFlag] = crypt
+}
+
 func (dph *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
 	if dph.handlerMap == nil {
 		dph.handlerMap = make(map[FunctionCode]*FunctionHandler)
 	}
 	dph.handlerMap[fc] = f
+}
+
+func (dph *ProtocolDataUnit) SetDataLength(length int) {
+	dph.dataLength = length
 }
 
 // 字段顺序已有---》新增处理顺序
@@ -206,10 +222,6 @@ func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 			dph.counts++
 		}
 	}
-}
-
-func (dph *ProtocolDataUnit) SetDataLength(length int) {
-	dph.dataLength = length
 }
 
 // ProtocolElement 元素接口
