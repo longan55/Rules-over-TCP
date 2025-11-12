@@ -8,10 +8,10 @@ import (
 	"strconv"
 )
 
-type DataTyper interface {
-	Value(src any) any
-	ExplainedValue(src any) any
-}
+// type DataTyper interface {
+// 	Value(src any) any
+// 	ExplainedValue(src any) any
+// }
 
 // BIN码 可以解释为整数、浮点数
 // BCD码 可以解释为字符串、整数（max: 18446744073709551615）、浮点数
@@ -134,7 +134,7 @@ func (c *CodecASCII) Decode(data []byte) (any, error) {
 // BCD   - INT     explain(string -> int)
 // ASCII - STRING  explain(string -> string)
 
-type NewDataTyper interface {
+type DataTyper interface {
 	Explain(data any) any
 	UnExplain(data any) any
 }
@@ -146,8 +146,8 @@ type binInteger struct {
 }
 
 var (
-	_ CodecOption  = (*binInteger)(nil)
-	_ NewDataTyper = (*binInteger)(nil)
+	_ CodecOption = (*binInteger)(nil)
+	_ DataTyper   = (*binInteger)(nil)
 )
 
 func (t *binInteger) Explain(data any) any {
@@ -183,7 +183,7 @@ func (t *binInteger) UnExplain(data any) any {
 	return result
 }
 func (t *binInteger) Apply(config *FieldCodecConfig) {
-	config.ndt = t
+	config.dataTyper = t
 }
 
 type binFloat struct {
@@ -193,8 +193,8 @@ type binFloat struct {
 }
 
 var (
-	_ CodecOption  = (*binFloat)(nil)
-	_ NewDataTyper = (*binFloat)(nil)
+	_ CodecOption = (*binFloat)(nil)
+	_ DataTyper   = (*binFloat)(nil)
 )
 
 func (t *binFloat) Explain(data any) any {
@@ -220,7 +220,7 @@ func (t *binFloat) UnExplain(data any) any {
 }
 
 func (t *binFloat) Apply(config *FieldCodecConfig) {
-	config.ndt = t
+	config.dataTyper = t
 }
 
 type bcdFloat struct {
@@ -230,8 +230,8 @@ type bcdFloat struct {
 }
 
 var (
-	_ CodecOption  = (*bcdFloat)(nil)
-	_ NewDataTyper = (*bcdFloat)(nil)
+	_ CodecOption = (*bcdFloat)(nil)
+	_ DataTyper   = (*bcdFloat)(nil)
 )
 
 func (t *bcdFloat) Explain(data any) any {
@@ -260,7 +260,7 @@ func (t *bcdFloat) UnExplain(data any) any {
 	return strconv.FormatFloat(result, 'f', 6, 64)
 }
 func (t *bcdFloat) Apply(config *FieldCodecConfig) {
-	config.ndt = t
+	config.dataTyper = t
 }
 func WithBcdString() CodecOption {
 	return &bcdString{}
@@ -270,7 +270,7 @@ type bcdString struct {
 }
 
 func (t *bcdString) Apply(config *FieldCodecConfig) {
-	config.ndt = t
+	config.dataTyper = t
 }
 func (t *bcdString) Explain(data any) any {
 	return data

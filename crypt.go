@@ -17,12 +17,6 @@ func (c *CryptNothing) Decrypt(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-// type CryptFunc func(data []byte) ([]byte, error)
-
-// func CryptNone(data []byte) ([]byte, error) {
-// 	return data, nil
-// }
-
 type CryptConfig struct {
 	cryptMap map[int]Cipher
 }
