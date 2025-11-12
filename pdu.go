@@ -35,11 +35,11 @@ func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolB
 
 // AddCryptConfig 添加加密配置,应该只被调用一次
 func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *ProtocolBuilder {
-	duBuilder.du.cryptLib = cryptConfig.GetCryptMap()
+	duBuilder.du.cryptLib = cryptConfig.cryptMap
 	return duBuilder
 }
 
-func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, crypt CryptFunc) *ProtocolBuilder {
+func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, crypt Cipher) *ProtocolBuilder {
 	duBuilder.du.AddCrypt(cryptFlag, crypt)
 	return duBuilder
 }
@@ -106,7 +106,7 @@ type ProtocolDataUnit struct {
 	functionCode FunctionCode
 	//加密标志
 	encryptionFlag int
-	cryptLib       map[int]CryptFunc
+	cryptLib       map[int]Cipher
 
 	conn net.Conn
 	//存储协议元素信息
@@ -114,11 +114,21 @@ type ProtocolDataUnit struct {
 	handlerMap map[FunctionCode]*FunctionHandler
 }
 
-func (dph *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt CryptFunc) {
+func (dph *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt Cipher) {
 	if dph.cryptLib == nil {
-		dph.cryptLib = make(map[int]CryptFunc)
+		dph.cryptLib = make(map[int]Cipher)
 	}
 	dph.cryptLib[cryptFlag] = crypt
+}
+
+func (dph *ProtocolDataUnit) Decrypt(cryptFlag int, src []byte) ([]byte, error) {
+	if dph.cryptLib == nil {
+		return nil, errors.New("未配置加密算法")
+	}
+	if _, ok := dph.cryptLib[cryptFlag]; !ok {
+		panic(fmt.Sprintf("未配置加密算法 %d", cryptFlag))
+	}
+	return dph.cryptLib[cryptFlag].Decrypt(src)
 }
 
 func (dph *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
@@ -200,7 +210,7 @@ func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 						break
 					}
 					data := a.([]byte)
-					data, err = dph.cryptLib[dph.encryptionFlag](data)
+					data, err = dph.Decrypt(dph.encryptionFlag, data)
 					if err != nil {
 						fmt.Println("解密失败:", err)
 						return

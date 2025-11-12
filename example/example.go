@@ -16,7 +16,6 @@ func main() {
 
 	//添加加密配置
 	cryptConfig := rot.NewCryptConfig()
-	cryptConfig.AddCrypt(0, rot.CryptNone)
 	builder.AddCryptConfig(cryptConfig)
 
 	//配置处理器，来数据时自动处理

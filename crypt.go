@@ -1,27 +1,40 @@
 package rot
 
-type CryptFunc func(data []byte) ([]byte, error)
+type Cipher interface {
+	Encrypt(data []byte) ([]byte, error)
+	Decrypt(data []byte) ([]byte, error)
+}
 
-func CryptNone(data []byte) ([]byte, error) {
+var _ Cipher = (*CryptNothing)(nil)
+
+type CryptNothing struct{}
+
+func (c *CryptNothing) Encrypt(data []byte) ([]byte, error) {
 	return data, nil
 }
 
+func (c *CryptNothing) Decrypt(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+// type CryptFunc func(data []byte) ([]byte, error)
+
+// func CryptNone(data []byte) ([]byte, error) {
+// 	return data, nil
+// }
+
 type CryptConfig struct {
-	cryptMap map[int]CryptFunc
+	cryptMap map[int]Cipher
 }
 
 func NewCryptConfig() *CryptConfig {
 	return &CryptConfig{
-		cryptMap: map[int]CryptFunc{
-			0: CryptNone,
+		cryptMap: map[int]Cipher{
+			0: &CryptNothing{},
 		},
 	}
 }
 
-func (cc *CryptConfig) AddCrypt(flag int, crypt CryptFunc) {
+func (cc *CryptConfig) AddCrypt(flag int, crypt Cipher) {
 	cc.cryptMap[flag] = crypt
-}
-
-func (cc *CryptConfig) GetCryptMap() map[int]CryptFunc {
-	return cc.cryptMap
 }
