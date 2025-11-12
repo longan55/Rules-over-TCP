@@ -69,7 +69,7 @@ func TestCodec2_Parse2(t *testing.T) {
 	builder := NewProtocolBuilder()
 	//添加加密配置
 	cryptConfig := NewCryptConfig()
-	cryptConfig.AddCrypt(0, CryptNone)
+	cryptConfig.AddCrypt(0, &CryptNothing{})
 	builder.AddCryptConfig(cryptConfig)
 
 	//配置处理器，来数据时自动处理

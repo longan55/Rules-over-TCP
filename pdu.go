@@ -39,8 +39,8 @@ func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *Prot
 	return duBuilder
 }
 
-func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, crypt Cipher) *ProtocolBuilder {
-	duBuilder.du.AddCrypt(cryptFlag, crypt)
+func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, cipher Cipher) *ProtocolBuilder {
+	duBuilder.du.AddCrypt(cryptFlag, cipher)
 	return duBuilder
 }
 

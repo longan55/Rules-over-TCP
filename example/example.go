@@ -14,16 +14,6 @@ func main() {
 	//处理器构建器
 	builder := rot.NewProtocolBuilder()
 
-	//添加加密配置
-	cryptConfig := rot.NewCryptConfig()
-	builder.AddCryptConfig(cryptConfig)
-
-	//配置处理器，来数据时自动处理
-	setHandlerConfig(builder)
-
-	//TODO:
-	//配置编码器，用于主动发送数据或被处理器调用
-
 	//构建处理器
 	builder.AddElement(rot.NewStarter([]byte{0x68})).
 		AddElement(rot.NewDataLen(1)).
@@ -36,6 +26,13 @@ func main() {
 		fmt.Println("构建处理器失败:", err)
 		return
 	}
+
+	//添加加密配置
+	cryptConfig := rot.NewCryptConfig()
+	builder.AddCryptConfig(cryptConfig)
+
+	//配置处理器，来数据时自动处理
+	setHandlerConfig(builder)
 
 	// 创建FakeConn并设置测试数据
 	fakeConn := fake.NewFakeConn()
