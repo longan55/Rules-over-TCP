@@ -250,47 +250,6 @@ func (t *dtFloat) Apply(config *FieldCodecConfig) {
 	config.dataTyper = t
 }
 
-// type bcdFloat struct {
-// 	moflag   bool
-// 	multiple float64
-// 	offset   float64
-// }
-
-// var (
-// 	_ CodecOption = (*bcdFloat)(nil)
-// 	_ DataTyper   = (*bcdFloat)(nil)
-// )
-
-//	func (t *bcdFloat) Explain(data any) any {
-//		str := data.(string)
-//		// 应用倍数和偏移量
-//		srcFloat, err := strconv.ParseFloat(str, 64)
-//		if err != nil {
-//			return nil
-//		}
-//		result := srcFloat
-//		if t.moflag {
-//			result = srcFloat*t.multiple + t.offset
-//		} else {
-//			result = (srcFloat + t.offset) * t.multiple
-//		}
-//		return result
-//	}
-//
-//	func (t *bcdFloat) UnExplain(data any) any {
-//		srcFloat := data.(float64)
-//		result := 0.0
-//		if t.moflag {
-//			result = (srcFloat - t.offset) / t.multiple
-//		} else {
-//			result = (srcFloat / t.multiple) - t.offset
-//		}
-//		return strconv.FormatFloat(result, 'f', 6, 64)
-//	}
-//
-//	func (t *bcdFloat) Apply(config *FieldCodecConfig) {
-//		config.dataTyper = t
-//	}
 func WithString() CodecOption {
 	return &bdtString{}
 }
