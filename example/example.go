@@ -67,7 +67,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	})
 	//2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
 	fh1 := new(rot.FunctionHandler)
-	fh1.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithBcdString())
+	fh1.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithString())
 	fh1.AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithFloat(true, 0.0001, 0))
 	fh1.AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
 
@@ -77,7 +77,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	})
 	//3. ASCII编码，仅解释为字符串
 	fh2 := new(rot.FunctionHandler)
-	fh2.AddField("ascii", rot.WithAscii(binary.BigEndian), rot.WithLength(4), rot.WithBcdString())
+	fh2.AddField("ascii", rot.WithAscii(binary.BigEndian), rot.WithLength(4), rot.WithString())
 	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
 		return nil

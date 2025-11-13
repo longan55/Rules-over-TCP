@@ -291,19 +291,19 @@ func (t *dtFloat) Apply(config *FieldCodecConfig) {
 //	func (t *bcdFloat) Apply(config *FieldCodecConfig) {
 //		config.dataTyper = t
 //	}
-func WithBcdString() CodecOption {
-	return &bcdString{}
+func WithString() CodecOption {
+	return &bdtString{}
 }
 
-type bcdString struct {
+type bdtString struct {
 }
 
-func (t *bcdString) Apply(config *FieldCodecConfig) {
+func (t *bdtString) Apply(config *FieldCodecConfig) {
 	config.dataTyper = t
 }
-func (t *bcdString) Explain(data any) any {
+func (t *bdtString) Explain(data any) any {
 	return data
 }
-func (t *bcdString) UnExplain(data any) any {
+func (t *bdtString) UnExplain(data any) any {
 	return data
 }
