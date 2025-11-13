@@ -72,6 +72,8 @@ func (c *CodecBCD) Encode(data any, byteLength int) ([]byte, error) {
 	switch v := data.(type) {
 	case int:
 		return hex.DecodeString(strconv.Itoa(v))
+	case float64:
+		return hex.DecodeString(strconv.FormatFloat(v, 'f', -1, 64))
 	case string:
 		return hex.DecodeString(v)
 	default:
@@ -139,18 +141,18 @@ type DataTyper interface {
 	UnExplain(data any) any
 }
 
-type binInteger struct {
+type dtInteger struct {
 	moflag   bool
 	multiple int
 	offset   int
 }
 
 var (
-	_ CodecOption = (*binInteger)(nil)
-	_ DataTyper   = (*binInteger)(nil)
+	_ CodecOption = (*dtInteger)(nil)
+	_ DataTyper   = (*dtInteger)(nil)
 )
 
-func (t *binInteger) Explain(data any) any {
+func (t *dtInteger) Explain(data any) any {
 	var i int
 	switch v := data.(type) {
 	default:
@@ -172,7 +174,7 @@ func (t *binInteger) Explain(data any) any {
 	}
 }
 
-func (t *binInteger) UnExplain(data any) any {
+func (t *dtInteger) UnExplain(data any) any {
 	srcFloat := data.(int)
 	result := 0
 	if t.moflag {
@@ -183,7 +185,7 @@ func (t *binInteger) UnExplain(data any) any {
 	return result
 }
 
-func (t *binInteger) Apply(config *FieldCodecConfig) {
+func (t *dtInteger) Apply(config *FieldCodecConfig) {
 	config.dataTyper = t
 }
 
@@ -222,12 +224,24 @@ func (t *dtFloat) Explain(data any) any {
 }
 
 func (t *dtFloat) UnExplain(data any) any {
-	srcFloat := data.(float64)
-	result := 0
+	var srcFloat float64
+	var err error
+	switch v := data.(type) {
+	default:
+		panic(fmt.Sprintf("unsupported data type for bcdFloat: %T", data))
+	case float64:
+		srcFloat = v
+	case string:
+		srcFloat, err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			panic(err)
+		}
+	}
+	result := 0.0
 	if t.moflag {
-		result = int((srcFloat - t.offset) / t.multiple)
+		result = (srcFloat - t.offset) / t.multiple
 	} else {
-		result = int((srcFloat / t.multiple) - t.offset)
+		result = (srcFloat / t.multiple) - t.offset
 	}
 	return result
 }
@@ -236,45 +250,47 @@ func (t *dtFloat) Apply(config *FieldCodecConfig) {
 	config.dataTyper = t
 }
 
-type bcdFloat struct {
-	moflag   bool
-	multiple float64
-	offset   float64
-}
+// type bcdFloat struct {
+// 	moflag   bool
+// 	multiple float64
+// 	offset   float64
+// }
 
-var (
-	_ CodecOption = (*bcdFloat)(nil)
-	_ DataTyper   = (*bcdFloat)(nil)
-)
+// var (
+// 	_ CodecOption = (*bcdFloat)(nil)
+// 	_ DataTyper   = (*bcdFloat)(nil)
+// )
 
-func (t *bcdFloat) Explain(data any) any {
-	str := data.(string)
-	// 应用倍数和偏移量
-	srcFloat, err := strconv.ParseFloat(str, 64)
-	if err != nil {
-		return nil
-	}
-	result := srcFloat
-	if t.moflag {
-		result = srcFloat*t.multiple + t.offset
-	} else {
-		result = (srcFloat + t.offset) * t.multiple
-	}
-	return result
-}
-func (t *bcdFloat) UnExplain(data any) any {
-	srcFloat := data.(float64)
-	result := 0.0
-	if t.moflag {
-		result = (srcFloat - t.offset) / t.multiple
-	} else {
-		result = (srcFloat / t.multiple) - t.offset
-	}
-	return strconv.FormatFloat(result, 'f', 6, 64)
-}
-func (t *bcdFloat) Apply(config *FieldCodecConfig) {
-	config.dataTyper = t
-}
+//	func (t *bcdFloat) Explain(data any) any {
+//		str := data.(string)
+//		// 应用倍数和偏移量
+//		srcFloat, err := strconv.ParseFloat(str, 64)
+//		if err != nil {
+//			return nil
+//		}
+//		result := srcFloat
+//		if t.moflag {
+//			result = srcFloat*t.multiple + t.offset
+//		} else {
+//			result = (srcFloat + t.offset) * t.multiple
+//		}
+//		return result
+//	}
+//
+//	func (t *bcdFloat) UnExplain(data any) any {
+//		srcFloat := data.(float64)
+//		result := 0.0
+//		if t.moflag {
+//			result = (srcFloat - t.offset) / t.multiple
+//		} else {
+//			result = (srcFloat / t.multiple) - t.offset
+//		}
+//		return strconv.FormatFloat(result, 'f', 6, 64)
+//	}
+//
+//	func (t *bcdFloat) Apply(config *FieldCodecConfig) {
+//		config.dataTyper = t
+//	}
 func WithBcdString() CodecOption {
 	return &bcdString{}
 }

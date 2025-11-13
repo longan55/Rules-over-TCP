@@ -47,12 +47,17 @@ func TestCodec2_Encode(t *testing.T) {
 	fc3 := NewFieldCodecConfig("3", WithEncode(), WithBin(), WithLength(2), WithInteger(true, 2, -10))
 	fc4 := NewFieldCodecConfig("4", WithEncode(), WithBin(), WithLength(2), WithInteger(false, 2, -10))
 
-	fcs := []*FieldCodecConfig{fc1, fc2, fc3, fc4}
-	ds := []int{
+	fc5 := NewFieldCodecConfig("5", WithEncode(), WithBcd(), WithLength(2), WithInteger(false, 1, 0))
+	fc6 := NewFieldCodecConfig("6", WithEncode(), WithBcd(), WithLength(2), WithFloat(false, 0.01, 0))
+
+	fcs := []*FieldCodecConfig{fc1, fc2, fc3, fc4, fc5, fc6}
+	ds := []any{
 		4660,
 		4650,
 		9310,
 		9300,
+		1010,
+		10.0,
 	}
 
 	for i, fc := range fcs {

@@ -66,15 +66,11 @@ func WithDataTyper(dataTyper DataTyper) CodecOption {
 }
 
 func WithInteger(moflag bool, multiple int, offset int) CodecOption {
-	return &binInteger{moflag: moflag, multiple: multiple, offset: offset}
+	return &dtInteger{moflag: moflag, multiple: multiple, offset: offset}
 }
 
 func WithFloat(moflag bool, multiple float64, offset float64) CodecOption {
 	return &dtFloat{moflag: moflag, multiple: multiple, offset: offset}
-}
-
-func WithBcdFloat(moflag bool, multiple float64, offset float64) CodecOption {
-	return &bcdFloat{moflag: moflag, multiple: multiple, offset: offset}
 }
 
 // WithMultiple 设置倍数选项
