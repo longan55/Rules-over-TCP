@@ -69,8 +69,8 @@ func WithInteger(moflag bool, multiple int, offset int) CodecOption {
 	return &binInteger{moflag: moflag, multiple: multiple, offset: offset}
 }
 
-func WithBinFloat(moflag bool, multiple float64, offset float64) CodecOption {
-	return &binFloat{moflag: moflag, multiple: multiple, offset: offset}
+func WithFloat(moflag bool, multiple float64, offset float64) CodecOption {
+	return &dtFloat{moflag: moflag, multiple: multiple, offset: offset}
 }
 
 func WithBcdFloat(moflag bool, multiple float64, offset float64) CodecOption {

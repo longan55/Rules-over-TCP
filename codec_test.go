@@ -17,9 +17,9 @@ func TestCodec2(t *testing.T) {
 	fc4 := NewFieldCodecConfig("4", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(false, 2, -10))
 	fc41 := NewFieldCodecConfig("41", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
-	fc5 := NewFieldCodecConfig("5", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinFloat(true, 0.01, 0))
-	fc6 := NewFieldCodecConfig("6", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinFloat(true, 0.01, 0.1))
-	fc7 := NewFieldCodecConfig("7", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithBinFloat(false, 0.01, 1))
+	fc5 := NewFieldCodecConfig("5", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithFloat(true, 0.01, 0))
+	fc6 := NewFieldCodecConfig("6", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithFloat(true, 0.01, 0.1))
+	fc7 := NewFieldCodecConfig("7", WithMode(ModeDecode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithFloat(false, 0.01, 1))
 
 	fcs := []*FieldCodecConfig{fc1, fc2, fc3, fc4, fc41, fc5, fc6, fc7}
 	ds := [][]byte{
@@ -42,10 +42,10 @@ func TestCodec2(t *testing.T) {
 }
 
 func TestCodec2_Encode(t *testing.T) {
-	fc1 := NewFieldCodecConfig("1", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(true, 1, 0))
-	fc2 := NewFieldCodecConfig("2", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(true, 1, -10))
-	fc3 := NewFieldCodecConfig("3", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(true, 2, -10))
-	fc4 := NewFieldCodecConfig("4", WithMode(ModeEncode), WithCodec(&CodecBIN{order: binary.BigEndian}), WithLength(2), WithInteger(false, 2, -10))
+	fc1 := NewFieldCodecConfig("1", WithEncode(), WithBin(), WithLength(2), WithInteger(true, 1, 0))
+	fc2 := NewFieldCodecConfig("2", WithEncode(), WithBin(), WithLength(2), WithInteger(true, 1, -10))
+	fc3 := NewFieldCodecConfig("3", WithEncode(), WithBin(), WithLength(2), WithInteger(true, 2, -10))
+	fc4 := NewFieldCodecConfig("4", WithEncode(), WithBin(), WithLength(2), WithInteger(false, 2, -10))
 
 	fcs := []*FieldCodecConfig{fc1, fc2, fc3, fc4}
 	ds := []int{
@@ -111,7 +111,7 @@ func setHandlerConfig(builder *ProtocolBuilder) {
 	fh.AddField("a", WithBin(), WithLength(4), WithInteger(true, 1, 0))
 	fh.AddField("b", WithBin(), WithLength(4), WithInteger(true, 1, 0))
 	fh.AddField("c", WithBin(), WithLength(2), WithInteger(true, 2, 0))
-	fh.AddField("d", WithBin(), WithLength(2), WithBinFloat(true, 0.01, 0))
+	fh.AddField("d", WithBin(), WithLength(2), WithFloat(true, 0.01, 0))
 	fh.AddField("e", WithBin(), WithLength(1), WithInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
 	fh.SetHandle(func(parsedData map[string]ParsedData) error {

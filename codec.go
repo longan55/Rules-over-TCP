@@ -182,33 +182,46 @@ func (t *binInteger) UnExplain(data any) any {
 	}
 	return result
 }
+
 func (t *binInteger) Apply(config *FieldCodecConfig) {
 	config.dataTyper = t
 }
 
-type binFloat struct {
+type dtFloat struct {
 	moflag   bool
 	multiple float64
 	offset   float64
 }
 
 var (
-	_ CodecOption = (*binFloat)(nil)
-	_ DataTyper   = (*binFloat)(nil)
+	_ CodecOption = (*dtFloat)(nil)
+	_ DataTyper   = (*dtFloat)(nil)
 )
 
-func (t *binFloat) Explain(data any) any {
-	srcInt := data.(int)
+func (t *dtFloat) Explain(data any) any {
+	var i int
+	switch v := data.(type) {
+	default:
+		panic(fmt.Sprintf("unsupported data type for binFloat: %T", data))
+	case int:
+		i = v
+	case string:
+		srcInt, err := strconv.Atoi(v)
+		if err != nil {
+			return nil
+		}
+		i = srcInt
+	}
 	result := 0.0
 	if t.moflag {
-		result = float64(srcInt)*t.multiple + t.offset
+		result = float64(i)*t.multiple + t.offset
 	} else {
-		result = (float64(srcInt) + t.offset) * t.multiple
+		result = (float64(i) + t.offset) * t.multiple
 	}
 	return result
 }
 
-func (t *binFloat) UnExplain(data any) any {
+func (t *dtFloat) UnExplain(data any) any {
 	srcFloat := data.(float64)
 	result := 0
 	if t.moflag {
@@ -219,7 +232,7 @@ func (t *binFloat) UnExplain(data any) any {
 	return result
 }
 
-func (t *binFloat) Apply(config *FieldCodecConfig) {
+func (t *dtFloat) Apply(config *FieldCodecConfig) {
 	config.dataTyper = t
 }
 
