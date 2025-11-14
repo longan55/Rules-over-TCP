@@ -51,7 +51,7 @@ func WithBcdWithOrder(order binary.ByteOrder) CodecOption {
 	}}
 }
 
-func WithAscii(order binary.ByteOrder) CodecOption {
+func WithAscii() CodecOption {
 	return &codecOption{codec: &CodecASCII{}}
 }
 

@@ -77,7 +77,7 @@ func setHandlerConfig(builder *rot.ProtocolBuilder) {
 	})
 	//3. ASCII编码，仅解释为字符串
 	fh2 := new(rot.FunctionHandler)
-	fh2.AddField("ascii", rot.WithAscii(binary.BigEndian), rot.WithLength(4), rot.WithString())
+	fh2.AddField("ascii", rot.WithAscii(), rot.WithLength(4), rot.WithString())
 	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
 		return nil
