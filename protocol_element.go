@@ -9,15 +9,23 @@ import (
 
 // ProtocolElement 元素接口
 type ProtocolElement interface {
+	//获取元素的索引
 	GetIndex() int
+	//设置元素的索引
 	SetIndex(index int)
+	//获取元素的名称
 	GetName() string
+	//获取元素的类型
 	Type() ProtocolElementType
+	//获取元素的实际值(不包含默认值)
 	RealValue() []byte
+	//获取元素自身占用的字节长度
 	Length() int
+	//获取元素的字节序
 	GetOrder() binary.ByteOrder
 	//fullData按元素切割整个数据单元，分成多个切片
 	Deal(fullData [][]byte) (ProtocolElementType, any, error)
+	//获取校验和类型
 	ChecksumType() uint8
 }
 
@@ -38,19 +46,22 @@ const (
 	Checksum
 )
 
+type DealFunction func(element ProtocolElement, data [][]byte) error
+
 var _ ProtocolElement = (*ProtocolElementImpl)(nil)
 
 // ProtocolElementImpl 基础元素结构体
 type ProtocolElementImpl struct {
 	//元数据: 存储该元素的元数据(用于描述说明)
-	index        int                                                                            //说明该元素的索引
-	Typ          ProtocolElementType                                                            //元素类型
-	name         string                                                                         //元素名字
-	selfLength   int                                                                            //元素本身长度
-	defaultValue []byte                                                                         //默认值
-	order        binary.ByteOrder                                                               //大小端
-	start        uint8                                                                          //开始索引: 该元素影响的元素区域的第一个元素索引
-	end          uint8                                                                          //结束索引: 该元素影响的元素区域的最后一个元素索引
+	index        int                 //说明该元素的索引
+	Typ          ProtocolElementType //元素类型
+	name         string              //元素名字
+	selfLength   int                 //元素本身长度
+	defaultValue []byte              //默认值
+	order        binary.ByteOrder    //大小端
+	start        uint8               //开始索引: 该元素影响的元素区域的第一个元素索引
+	end          uint8               //结束索引: 该元素影响的元素区域的最后一个元素索引
+	//TODO: DealFunc可简化为func(element ProtocolElement, data [][]byte)error
 	DealFunc     func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
 	checksumType uint8
 }
@@ -74,9 +85,10 @@ func (f *ProtocolElementImpl) Type() ProtocolElementType {
 func (f *ProtocolElementImpl) RealValue() []byte {
 	return f.defaultValue
 }
-func (f *ProtocolElementImpl) SetLen(l int) {
-	f.selfLength = l
-}
+
+//	func (f *ProtocolElementImpl) SetLen(l int) {
+//		f.selfLength = l
+//	}
 func (f *ProtocolElementImpl) Length() int {
 	return f.selfLength
 }
@@ -106,7 +118,7 @@ func NewStarter(start []byte) ProtocolElement {
 		selfLength:   len(start),
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
-		if fullData == nil {
+		if len(fullData) == 0 {
 			return element.Type(), nil, errors.New("数据为空")
 		}
 		if !bytes.Equal(fullData[0][:element.Length()], element.RealValue()) {
@@ -132,6 +144,7 @@ func NewDataLen(selfLength int) ProtocolElement {
 		data := fullData[element.GetIndex()]
 		length := Bin2Int(data, element.GetOrder())
 		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
+		//TODO: 这里的length可以通过接口设置
 		return element.Type(), length, nil
 	}
 	return element
@@ -151,6 +164,7 @@ func NewCyptoFlag() ProtocolElement {
 		flagdata := fullData[element.GetIndex()]
 		flag := Bin2Int(flagdata, element.GetOrder())
 		fmt.Printf("加密标识:\t\t[%#0X]\n", fullData[element.GetIndex()])
+		//TODO: 这里的flag可以通过接口设置
 		return element.Type(), flag, nil
 	}
 	return element
@@ -173,6 +187,7 @@ func NewFuncCode() ProtocolElement {
 	}
 	return element
 }
+
 func NewPayload() ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Payload,
