@@ -5,6 +5,12 @@
 
 #### 运行示例
 ```bash
-cd example
-go run example.go
+go run example/simple/simple.go
 ```
+
+#### 开发计划
+- 二进制解析
+- 自定义Codec测试
+- 序列化（其他数据->[]byte）功能开发
+- 连接重连管理
+- 示例开发：云快充服务端
