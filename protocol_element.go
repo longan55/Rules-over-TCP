@@ -36,6 +36,8 @@ const (
 	Preamble ProtocolElementType = iota
 	// 当前元素之后的数据长度
 	Length
+	// 序 列 号
+	SerialNumber
 	// 加密标志
 	EncryptionFlag
 	// 功能码
@@ -146,6 +148,24 @@ func NewDataLen(selfLength int) ProtocolElement {
 		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
 		//TODO: 这里的length可以通过接口设置
 		return element.Type(), length, nil
+	}
+	return element
+}
+
+func NewSerialNumber() ProtocolElement {
+	element := &ProtocolElementImpl{
+		Typ:        EncryptionFlag,
+		name:       "序 列 号 ",
+		selfLength: 1,
+	}
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+		if fullData == nil {
+			return element.Type(), nil, errors.New("数据为空")
+		}
+		flagdata := fullData[element.GetIndex()]
+		flag := Bin2Int(flagdata, element.GetOrder())
+		fmt.Printf("序 列 号:\t\t[%#0X]\n", fullData[element.GetIndex()])
+		return element.Type(), flag, nil
 	}
 	return element
 }
