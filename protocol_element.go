@@ -18,7 +18,11 @@ type ProtocolElement interface {
 	//获取元素的类型
 	Type() ProtocolElementType
 	//获取元素的实际值(不包含默认值)
-	RealValue() []byte
+	RealValue() any
+	//设置元素的实际值(不包含默认值)
+	SetRealValue(value any)
+	//获取元素的默认值
+	DefaultValue() []byte
 	//获取元素自身占用的字节长度
 	Length() int
 	//获取元素的字节序
@@ -60,6 +64,7 @@ type ProtocolElementImpl struct {
 	name         string              //元素名字
 	selfLength   int                 //元素本身长度
 	defaultValue []byte              //默认值
+	realValue    any                 //元素的实际值(不包含默认值)
 	order        binary.ByteOrder    //大小端
 	start        uint8               //开始索引: 该元素影响的元素区域的第一个元素索引
 	end          uint8               //结束索引: 该元素影响的元素区域的最后一个元素索引
@@ -84,7 +89,15 @@ func (f *ProtocolElementImpl) Type() ProtocolElementType {
 	return f.Typ
 }
 
-func (f *ProtocolElementImpl) RealValue() []byte {
+func (f *ProtocolElementImpl) RealValue() any {
+	return f.realValue
+}
+
+func (f *ProtocolElementImpl) SetRealValue(value any) {
+	f.realValue = value
+}
+
+func (f *ProtocolElementImpl) DefaultValue() []byte {
 	return f.defaultValue
 }
 
@@ -123,8 +136,8 @@ func NewStarter(start []byte) ProtocolElement {
 		if len(fullData) == 0 {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		if !bytes.Equal(fullData[0][:element.Length()], element.RealValue()) {
-			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.RealValue(), fullData[0][:element.Length()])
+		if !bytes.Equal(fullData[0][:element.Length()], element.DefaultValue()) {
+			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.DefaultValue(), fullData[0][:element.Length()])
 		}
 		fmt.Printf("起始符:\t\t\t[%#0X]\n", fullData[0][:element.Length()])
 		return element.Type(), nil, nil
@@ -152,20 +165,32 @@ func NewDataLen(selfLength int) ProtocolElement {
 	return element
 }
 
+// 序 列 号, 接收方返回相同的序列号，用于确认接收方是否成功接收数据
 func NewSerialNumber() ProtocolElement {
 	element := &ProtocolElementImpl{
-		Typ:        EncryptionFlag,
+		Typ:        SerialNumber,
 		name:       "序 列 号 ",
-		selfLength: 1,
+		selfLength: 2,
 	}
 	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
 		if fullData == nil {
 			return element.Type(), nil, errors.New("数据为空")
 		}
-		flagdata := fullData[element.GetIndex()]
-		flag := Bin2Int(flagdata, element.GetOrder())
-		fmt.Printf("序 列 号:\t\t[%#0X]\n", fullData[element.GetIndex()])
-		return element.Type(), flag, nil
+		serialdata := fullData[element.GetIndex()]
+		sn := Bin2Int(serialdata, element.GetOrder())
+		//实际类型为int16的any可以强转为int吗？
+		oldsn, ok := element.RealValue().(int16)
+		if !ok {
+			return element.Type(), nil, fmt.Errorf("序列号错误Need:%d,But:%d", element.RealValue(), sn)
+		}
+		if sn < int(oldsn) {
+			return element.Type(), nil, fmt.Errorf("序列号重复Latest:%d,But:%d", element.RealValue(), sn)
+		}
+		if sn == int(oldsn)+1 {
+			element.SetRealValue(int16(sn))
+		}
+		fmt.Printf("%s:\t\t[%#0X]\n", element.GetName(), fullData[element.GetIndex()])
+		return element.Type(), sn, nil
 	}
 	return element
 }
