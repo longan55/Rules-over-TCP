@@ -68,7 +68,7 @@ type ProtocolElementImpl struct {
 	order        binary.ByteOrder    //大小端
 	start        uint8               //开始索引: 该元素影响的元素区域的第一个元素索引
 	end          uint8               //结束索引: 该元素影响的元素区域的最后一个元素索引
-	//TODO: DealFunc可简化为func(element ProtocolElement, data [][]byte)error
+	//TODO: DealFunc可简化为func(element ProtocolElement, data [][]byte)error。。返回Type貌似是必须的。
 	DealFunc     func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
 	checksumType uint8
 }

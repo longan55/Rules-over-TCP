@@ -134,55 +134,57 @@ type ProtocolDataUnit struct {
 	handlerMap map[FunctionCode]*FunctionHandler
 }
 
-func (dph *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt Cipher) {
-	if dph.cryptLib == nil {
-		dph.cryptLib = make(map[int]Cipher)
+func (pdu *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt Cipher) {
+	if pdu.cryptLib == nil {
+		pdu.cryptLib = make(map[int]Cipher)
 	}
-	dph.cryptLib[cryptFlag] = crypt
+	pdu.cryptLib[cryptFlag] = crypt
 }
 
-func (dph *ProtocolDataUnit) Decrypt(cryptFlag int, src []byte) ([]byte, error) {
-	if dph.cryptLib == nil {
+func (pdu *ProtocolDataUnit) Decrypt(cryptFlag int, src []byte) ([]byte, error) {
+	if pdu.cryptLib == nil {
 		return nil, errors.New("未配置加密算法")
 	}
-	if _, ok := dph.cryptLib[cryptFlag]; !ok {
+	if _, ok := pdu.cryptLib[cryptFlag]; !ok {
 		panic(fmt.Sprintf("未配置加密算法 %d", cryptFlag))
 	}
-	return dph.cryptLib[cryptFlag].Decrypt(src)
+	return pdu.cryptLib[cryptFlag].Decrypt(src)
 }
 
-func (dph *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
-	if dph.handlerMap == nil {
-		dph.handlerMap = make(map[FunctionCode]*FunctionHandler)
+func (pdu *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
+	if pdu.handlerMap == nil {
+		pdu.handlerMap = make(map[FunctionCode]*FunctionHandler)
 	}
-	dph.handlerMap[fc] = f
+	pdu.handlerMap[fc] = f
 }
 
-func (dph *ProtocolDataUnit) SetDataLength(length int) {
-	dph.dataLength = length
+func (pdu *ProtocolDataUnit) SetDataLength(length int) {
+	pdu.dataLength = length
 }
 
 // 字段顺序已有---》新增处理顺序
-func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
-	dph.conn = conn
+func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
+	pdu.conn = conn
 	for {
 		select {
 		case <-ctx.Done():
 			//停止读取
 			return
 		default:
-			fmt.Printf("[第%v个数据单元解析开始]\n", dph.counts)
-			alldata := make([][]byte, 0, len(dph.elements))
+			fmt.Printf("[第%v个数据单元解析开始]\n", pdu.counts)
+			alldata := make([][]byte, 0, len(pdu.elements))
 			//第一遍遍历elements, 读取一个完整的数据单元
-			for _, element := range dph.elements {
+			for _, element := range pdu.elements {
 				//定义好合适长度的buf,接收该元素数据
 				var buf []byte
+				//如果是数据域, 就需要从ProtocolDataUnit中获取长度
 				if element.Type() == Payload {
-					buf = make([]byte, dph.dataLength-2)
+					buf = make([]byte, pdu.dataLength-2)
 				} else {
+					//其他元素, 就直接通过Length()读取
 					buf = make([]byte, element.Length())
 				}
-				_, err := io.ReadFull(dph.conn, buf)
+				_, err := io.ReadFull(pdu.conn, buf)
 				if err != nil {
 					fmt.Println("读取数据失败:", err)
 					return
@@ -201,11 +203,11 @@ func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 						fmt.Println("数据长度校验失败: ", err)
 						break
 					}
-					dph.dataLength = a.(int)
+					pdu.dataLength = a.(int)
 				}
 			}
 			//第二次遍历elements, 解析数据单元
-			for _, element := range dph.elements {
+			for _, element := range pdu.elements {
 				switch element.Type() {
 				case Preamble, Length:
 					continue
@@ -215,14 +217,14 @@ func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 						fmt.Println("加密标志校验失败: ", err)
 						break
 					}
-					dph.encryptionFlag = a.(int)
+					pdu.encryptionFlag = a.(int)
 				case Function:
 					_, a, err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("功能码校验失败: ", err)
 						break
 					}
-					dph.functionCode = a.(FunctionCode)
+					pdu.functionCode = a.(FunctionCode)
 				case Payload:
 					_, a, err := element.Deal(alldata)
 					if err != nil {
@@ -230,14 +232,14 @@ func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 						break
 					}
 					data := a.([]byte)
-					data, err = dph.Decrypt(dph.encryptionFlag, data)
+					data, err = pdu.Decrypt(pdu.encryptionFlag, data)
 					if err != nil {
 						fmt.Println("解密失败:", err)
 						return
 					}
-					hd, ok := dph.handlerMap[dph.functionCode]
+					hd, ok := pdu.handlerMap[pdu.functionCode]
 					if !ok {
-						fmt.Println("未注册功能码:", dph.functionCode)
+						fmt.Println("未注册功能码:", pdu.functionCode)
 						return
 					}
 					err = hd.Handle(data)
@@ -247,9 +249,9 @@ func (dph *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 					}
 				}
 			}
-			fmt.Printf("[第%v个数据单元解析完成]\n", dph.counts)
+			fmt.Printf("[第%v个数据单元解析完成]\n", pdu.counts)
 			fmt.Println()
-			dph.counts++
+			pdu.counts++
 		}
 	}
 }
