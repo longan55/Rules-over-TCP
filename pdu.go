@@ -192,18 +192,18 @@ func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 
 				alldata = append(alldata, buf)
 				if element.Type() == Preamble {
-					_, _, err := element.Deal(alldata)
+					err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("起始符校验失败: ", err)
 						break
 					}
 				} else if element.Type() == Length {
-					_, a, err := element.Deal(alldata)
+					err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("数据长度校验失败: ", err)
 						break
 					}
-					pdu.dataLength = a.(int)
+					pdu.dataLength = element.RealValue().(int)
 				}
 			}
 			//第二次遍历elements, 解析数据单元
@@ -212,26 +212,26 @@ func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 				case Preamble, Length:
 					continue
 				case EncryptionFlag:
-					_, a, err := element.Deal(alldata)
+					err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("加密标志校验失败: ", err)
 						break
 					}
-					pdu.encryptionFlag = a.(int)
+					pdu.encryptionFlag = element.RealValue().(int)
 				case Function:
-					_, a, err := element.Deal(alldata)
+					err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("功能码校验失败: ", err)
 						break
 					}
-					pdu.functionCode = a.(FunctionCode)
+					pdu.functionCode = element.RealValue().(FunctionCode)
 				case Payload:
-					_, a, err := element.Deal(alldata)
+					err := element.Deal(alldata)
 					if err != nil {
 						fmt.Println("数据解析失败:", err)
 						break
 					}
-					data := a.([]byte)
+					data := element.RealValue().([]byte)
 					data, err = pdu.Decrypt(pdu.encryptionFlag, data)
 					if err != nil {
 						fmt.Println("解密失败:", err)

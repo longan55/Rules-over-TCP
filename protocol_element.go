@@ -28,7 +28,7 @@ type ProtocolElement interface {
 	//获取元素的字节序
 	GetOrder() binary.ByteOrder
 	//fullData按元素切割整个数据单元，分成多个切片
-	Deal(fullData [][]byte) (ProtocolElementType, any, error)
+	Deal(fullData [][]byte) error
 	//获取校验和类型
 	ChecksumType() uint8
 }
@@ -69,7 +69,7 @@ type ProtocolElementImpl struct {
 	start        uint8               //开始索引: 该元素影响的元素区域的第一个元素索引
 	end          uint8               //结束索引: 该元素影响的元素区域的最后一个元素索引
 	//TODO: DealFunc可简化为func(element ProtocolElement, data [][]byte)error。。返回Type貌似是必须的。
-	DealFunc     func(element ProtocolElement, data [][]byte) (ProtocolElementType, any, error) //处理函数
+	DealFunc     DealFunction //处理函数
 	checksumType uint8
 }
 
@@ -116,7 +116,7 @@ func (f *ProtocolElementImpl) GetRange() (start, end uint8) {
 	return f.start, f.end
 }
 
-func (f *ProtocolElementImpl) Deal(data [][]byte) (ProtocolElementType, any, error) {
+func (f *ProtocolElementImpl) Deal(data [][]byte) error {
 	return f.DealFunc(f, data)
 }
 
@@ -132,15 +132,15 @@ func NewStarter(start []byte) ProtocolElement {
 		defaultValue: start,
 		selfLength:   len(start),
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if len(fullData) == 0 {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		if !bytes.Equal(fullData[0][:element.Length()], element.DefaultValue()) {
-			return element.Type(), nil, fmt.Errorf("起始符错误Need:%0X,But:%0X", element.DefaultValue(), fullData[0][:element.Length()])
+			return fmt.Errorf("起始符错误Need:%0X,But:%0X", element.DefaultValue(), fullData[0][:element.Length()])
 		}
 		fmt.Printf("起始符:\t\t\t[%#0X]\n", fullData[0][:element.Length()])
-		return element.Type(), nil, nil
+		return nil
 	}
 	return element
 }
@@ -152,15 +152,16 @@ func NewDataLen(selfLength int) ProtocolElement {
 		defaultValue: nil,
 		selfLength:   selfLength,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if fullData == nil {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		data := fullData[element.GetIndex()]
 		length := Bin2Int(data, element.GetOrder())
 		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
+		element.SetRealValue(length)
 		//TODO: 这里的length可以通过接口设置
-		return element.Type(), length, nil
+		return nil
 	}
 	return element
 }
@@ -172,25 +173,25 @@ func NewSerialNumber() ProtocolElement {
 		name:       "序 列 号 ",
 		selfLength: 2,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if fullData == nil {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		serialdata := fullData[element.GetIndex()]
 		sn := Bin2Int(serialdata, element.GetOrder())
 		//实际类型为int16的any可以强转为int吗？
 		oldsn, ok := element.RealValue().(int16)
 		if !ok {
-			return element.Type(), nil, fmt.Errorf("序列号错误Need:%d,But:%d", element.RealValue(), sn)
+			return fmt.Errorf("序列号错误Need:%d,But:%d", element.RealValue(), sn)
 		}
 		if sn < int(oldsn) {
-			return element.Type(), nil, fmt.Errorf("序列号重复Latest:%d,But:%d", element.RealValue(), sn)
+			return fmt.Errorf("序列号重复Latest:%d,But:%d", element.RealValue(), sn)
 		}
 		if sn == int(oldsn)+1 {
 			element.SetRealValue(int16(sn))
 		}
 		fmt.Printf("%s:\t\t[%#0X]\n", element.GetName(), fullData[element.GetIndex()])
-		return element.Type(), sn, nil
+		return nil
 	}
 	return element
 }
@@ -202,15 +203,16 @@ func NewCyptoFlag() ProtocolElement {
 		defaultValue: []byte{0x01},
 		selfLength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if fullData == nil {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		flagdata := fullData[element.GetIndex()]
 		flag := Bin2Int(flagdata, element.GetOrder())
 		fmt.Printf("加密标识:\t\t[%#0X]\n", fullData[element.GetIndex()])
+		element.SetRealValue(flag)
 		//TODO: 这里的flag可以通过接口设置
-		return element.Type(), flag, nil
+		return nil
 	}
 	return element
 }
@@ -222,13 +224,14 @@ func NewFuncCode() ProtocolElement {
 		defaultValue: nil,
 		selfLength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if fullData == nil {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		fmt.Printf("功能码:\t\t\t[%#0X]\n", fullData[element.GetIndex()])
 		functionCode := FunctionCode(fullData[element.GetIndex()][0])
-		return element.Type(), functionCode, nil
+		element.SetRealValue(functionCode)
+		return nil
 	}
 	return element
 }
@@ -240,12 +243,12 @@ func NewPayload() ProtocolElement {
 		defaultValue: nil,
 		selfLength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if fullData == nil {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		fmt.Printf("帧负载:\t\t\t[% #0X]\n", fullData[element.GetIndex()])
-		return element.Type(), fullData[element.GetIndex()], nil
+		return nil
 	}
 	return element
 }
@@ -258,9 +261,9 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		selfLength:   selfLength,
 		checksumType: checksumType,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) (ProtocolElementType, any, error) {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
 		if fullData == nil {
-			return element.Type(), nil, errors.New("数据为空")
+			return errors.New("数据为空")
 		}
 		fmt.Printf("校 验 码:\t\t[% #0X]\n", fullData[element.GetIndex()])
 		checksum0 := fullData[element.GetIndex()]
@@ -268,10 +271,10 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		full := bytes.Join(fullData[2:element.GetIndex()], nil)
 		checksum := CheckSum(element.ChecksumType(), full)
 		if !bytes.Equal(checksum, checksum0) {
-			return element.Type(), nil, fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum, checksum0)
+			return fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum, checksum0)
 		}
 		fmt.Printf("校验码类型:%d,计算校验码:% #0X,校验通过\n", element.ChecksumType(), checksum)
-		return element.Type(), checksum, nil
+		return nil
 	}
 	return element
 }
