@@ -27,11 +27,16 @@ type ProtocolElement interface {
 	Length() int
 	//获取元素的字节序
 	GetOrder() binary.ByteOrder
-	//fullData按元素切割整个数据单元，分成多个切片
-	Deal(fullData [][]byte) error
+	//预处理: 对fullData进行预处理，返回处理后的fullData
+	Preprocess(element ProtocolElement, fullData [][]byte) error
+	//fullData按元素切割整个数据单元，分成多个切片，pdu提供对ProtocolDataUnit的访问
+	Deal(fullData [][]byte, pdu ProtocolDataUnitAccessor) error
 	//获取校验和类型
 	ChecksumType() uint8
 }
+
+// NewStarter 起始符示例的DealFunc更新
+// 其他元素创建函数的DealFunc也需要类似更新，此处略过具体实现
 
 type ProtocolElementType byte
 
@@ -52,7 +57,18 @@ const (
 	Checksum
 )
 
-type DealFunction func(element ProtocolElement, data [][]byte) error
+// ProtocolDataUnitAccessor 提供对ProtocolDataUnit的访问接口
+type ProtocolDataUnitAccessor interface {
+	// GetElementByIndex 通过索引获取ProtocolElement
+	GetElementByIndex(index int) ProtocolElement
+	// GetElementByType 通过类型获取ProtocolElement
+	GetElementByType(typ ProtocolElementType) ProtocolElement
+	// GetAllElements 获取所有ProtocolElement
+	GetAllElements() []ProtocolElement
+}
+
+// DealFunction 处理函数
+type DealFunction func(element ProtocolElement, data [][]byte, pdu ProtocolDataUnitAccessor) error
 
 var _ ProtocolElement = (*ProtocolElementImpl)(nil)
 
@@ -116,8 +132,12 @@ func (f *ProtocolElementImpl) GetRange() (start, end uint8) {
 	return f.start, f.end
 }
 
-func (f *ProtocolElementImpl) Deal(data [][]byte) error {
-	return f.DealFunc(f, data)
+func (f *ProtocolElementImpl) Preprocess(element ProtocolElement, fullData [][]byte) error {
+	return nil
+}
+
+func (f *ProtocolElementImpl) Deal(data [][]byte, pdu ProtocolDataUnitAccessor) error {
+	return f.DealFunc(f, data, pdu)
 }
 
 func (f *ProtocolElementImpl) ChecksumType() uint8 {
@@ -132,7 +152,7 @@ func NewStarter(start []byte) ProtocolElement {
 		defaultValue: start,
 		selfLength:   len(start),
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if len(fullData) == 0 {
 			return errors.New("数据为空")
 		}
@@ -152,7 +172,7 @@ func NewDataLen(selfLength int) ProtocolElement {
 		defaultValue: nil,
 		selfLength:   selfLength,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if fullData == nil {
 			return errors.New("数据为空")
 		}
@@ -160,7 +180,6 @@ func NewDataLen(selfLength int) ProtocolElement {
 		length := Bin2Int(data, element.GetOrder())
 		fmt.Printf("帧长度:\t\t\t[%d]\n", length)
 		element.SetRealValue(length)
-		//TODO: 这里的length可以通过接口设置
 		return nil
 	}
 	return element
@@ -173,7 +192,7 @@ func NewSerialNumber() ProtocolElement {
 		name:       "序 列 号 ",
 		selfLength: 2,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if fullData == nil {
 			return errors.New("数据为空")
 		}
@@ -203,7 +222,7 @@ func NewCyptoFlag() ProtocolElement {
 		defaultValue: []byte{0x01},
 		selfLength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if fullData == nil {
 			return errors.New("数据为空")
 		}
@@ -211,7 +230,14 @@ func NewCyptoFlag() ProtocolElement {
 		flag := Bin2Int(flagdata, element.GetOrder())
 		fmt.Printf("加密标识:\t\t[%#0X]\n", fullData[element.GetIndex()])
 		element.SetRealValue(flag)
-		//TODO: 这里的flag可以通过接口设置
+
+		// 示例：通过pdu访问其他元素
+		// 例如，如果需要在设置加密标志时检查其他元素
+		payloadElement := pdu.GetElementByType(Payload)
+		if payloadElement != nil {
+			fmt.Printf("检测到存在Payload元素，加密标志将用于解密操作\n")
+		}
+
 		return nil
 	}
 	return element
@@ -224,7 +250,7 @@ func NewFuncCode() ProtocolElement {
 		defaultValue: nil,
 		selfLength:   1,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if fullData == nil {
 			return errors.New("数据为空")
 		}
@@ -241,13 +267,24 @@ func NewPayload() ProtocolElement {
 		Typ:          Payload,
 		name:         "帧 负 载",
 		defaultValue: nil,
-		selfLength:   1,
+		selfLength:   -1,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if fullData == nil {
 			return errors.New("数据为空")
 		}
+
+		// 示例：通过pdu获取Length元素的值作为payload长度
+		lengthElement := pdu.GetElementByType(Length)
+		if lengthElement != nil {
+			lengthValue, ok := lengthElement.RealValue().(int)
+			if ok && lengthValue > 0 {
+				fmt.Printf("使用Length元素的值[%d]作为负载长度参考\n", lengthValue)
+			}
+		}
+
 		fmt.Printf("帧负载:\t\t\t[% #0X]\n", fullData[element.GetIndex()])
+		element.SetRealValue(fullData[element.GetIndex()])
 		return nil
 	}
 	return element
@@ -261,7 +298,7 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 		selfLength:   selfLength,
 		checksumType: checksumType,
 	}
-	element.DealFunc = func(element ProtocolElement, fullData [][]byte) error {
+	element.DealFunc = func(element ProtocolElement, fullData [][]byte, pdu ProtocolDataUnitAccessor) error {
 		if fullData == nil {
 			return errors.New("数据为空")
 		}
