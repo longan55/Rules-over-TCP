@@ -118,7 +118,7 @@ type Protocol interface {
 
 var _ Protocol = (*ProtocolDataUnit)(nil)
 
-// ProtocolDataUnit 协议数据单元
+// ProtocolDataUnit 协议数据单元, 保存所有协议的上下文信息
 type ProtocolDataUnit struct {
 	counts uint64
 	//当前数据单元的 数据域长度
