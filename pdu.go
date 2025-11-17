@@ -104,7 +104,7 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	//todo 起始码+长度码 的长度
 	for index, element := range duBuilder.du.elements {
 		element.SetIndex(index)
-		fmt.Printf("%s\t%v\t\t%d\t\t%#x\n", element.GetName(), element.Type(), element.Length(), element.RealValue())
+		fmt.Printf("%s\t%v\t\t%d\t\t%#x\n", element.GetName(), element.Type(), element.Length(), element.DefaultValue())
 	}
 	fmt.Println("------------------------------------------------------")
 	return duBuilder.du, nil
