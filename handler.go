@@ -46,7 +46,6 @@ func NewHandlerConfig() *HandlerConfig {
 
 type FunctionHandler struct {
 	length  int
-	fc      FunctionCode
 	handler Handler
 
 	fccs []*FieldCodecConfig
