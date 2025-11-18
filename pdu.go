@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 )
@@ -104,7 +103,7 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	//todo 起始码+长度码 的长度
 	for index, element := range duBuilder.du.elements {
 		element.SetIndex(index)
-		fmt.Printf("%s\t%v\t\t%d\t\t%#x\n", element.GetName(), element.Type(), element.Length(), element.DefaultValue())
+		fmt.Printf("%s\t%v\t\t%d\t\t%#x\n", element.GetName(), element.Type(), element.SelfLength(), element.DefaultValue())
 	}
 	fmt.Println("------------------------------------------------------")
 	return duBuilder.du, nil
@@ -113,23 +112,16 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 type Protocol interface {
 	AddHandler(fc FunctionCode, f *FunctionHandler)
 	Handle(ctx context.Context, conn net.Conn)
-	SetDataLength(length int)
+	// SetDataLength(length int)
 }
 
 var _ Protocol = (*ProtocolDataUnit)(nil)
 
 // ProtocolDataUnit 协议数据单元, 保存所有协议的上下文信息
 type ProtocolDataUnit struct {
-	counts uint64
-	//当前数据单元的 数据域长度
-	dataLength   int
-	functionCode FunctionCode
-	//加密标志
-	encryptionFlag int
-	cryptLib       map[int]Cipher
-
-	conn net.Conn
-	//存储协议元素信息
+	counts     uint64
+	cryptLib   map[int]Cipher
+	conn       net.Conn
 	elements   []ProtocolElement
 	handlerMap map[FunctionCode]*FunctionHandler
 }
@@ -181,11 +173,14 @@ func (pdu *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
 	pdu.handlerMap[fc] = f
 }
 
-func (pdu *ProtocolDataUnit) SetDataLength(length int) {
-	pdu.dataLength = length
+func (pdu *ProtocolDataUnit) DoHandle(code FunctionCode, payload []byte) error {
+	if handler, ok := pdu.handlerMap[code]; !ok {
+		return errors.New("未配置处理函数")
+	} else {
+		return handler.Handle(payload)
+	}
 }
 
-// 字段顺序已有---》新增处理顺序
 func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 	pdu.conn = conn
 	for {
@@ -195,110 +190,20 @@ func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 			return
 		default:
 			fmt.Printf("[第%v个数据单元解析开始]\n", pdu.counts)
-			alldata := make([][]byte, 0, len(pdu.elements))
 			//第一遍遍历elements, 读取一个完整的数据单元
 			for _, element := range pdu.elements {
-				//定义好合适长度的buf,接收该元素数据
-				var buf []byte
-				//如果是数据域, 就需要从ProtocolDataUnit中获取长度
-				if element.Type() == Payload {
-					buf = make([]byte, pdu.dataLength-2)
-				} else {
-					//其他元素, 就直接通过Length()读取
-					buf = make([]byte, element.Length())
-				}
-				_, err := io.ReadFull(pdu.conn, buf)
+				err := element.Preprocess(conn, element, pdu)
 				if err != nil {
-					fmt.Println("读取数据失败:", err)
+					fmt.Println("数据预处理失败:", err)
 					return
 				}
-
-				alldata = append(alldata, buf)
-				if element.Type() == Preamble {
-					err := element.Deal(alldata, pdu)
-					if err != nil {
-						fmt.Println("起始符校验失败: ", err)
-						break
-					}
-				} else if element.Type() == Length {
-					err := element.Deal(alldata, pdu)
-					if err != nil {
-						fmt.Println("数据长度校验失败: ", err)
-						break
-					}
-					pdu.dataLength = element.RealValue().(int)
-				}
 			}
-			//第二次遍历elements, 解析数据单元
 			for _, element := range pdu.elements {
-				switch element.Type() {
-				case Preamble, Length:
-					continue
-				case EncryptionFlag:
-					err := element.Deal(alldata, pdu)
-					if err != nil {
-						fmt.Println("加密标志校验失败: ", err)
-						break
-					}
-					pdu.encryptionFlag = element.RealValue().(int)
-				case Function:
-					err := element.Deal(alldata, pdu)
-					if err != nil {
-						fmt.Println("功能码校验失败: ", err)
-						break
-					}
-					pdu.functionCode = element.RealValue().(FunctionCode)
-				case Payload:
-					err := element.Deal(alldata, pdu)
-					if err != nil {
-						fmt.Println("数据解析失败:", err)
-						break
-					}
-					data := element.RealValue().([]byte)
-					data, err = pdu.Decrypt(pdu.encryptionFlag, data)
-					if err != nil {
-						fmt.Println("解密失败:", err)
-						return
-					}
-					hd, ok := pdu.handlerMap[pdu.functionCode]
-					if !ok {
-						fmt.Println("未注册功能码:", pdu.functionCode)
-						return
-					}
-					err = hd.Handle(data)
-					if err != nil {
-						fmt.Println("处理数据失败:", err)
-						return
-					}
-				}
-			}
-			fmt.Printf("[第%v个数据单元解析完成]\n", pdu.counts)
-			fmt.Println()
-			pdu.counts++
-		}
-	}
-}
-
-func (pdu *ProtocolDataUnit) Handle1(ctx context.Context, conn net.Conn) {
-	pdu.conn = conn
-	for {
-		select {
-		case <-ctx.Done():
-			//停止读取
-			return
-		default:
-			fmt.Printf("[第%v个数据单元解析开始]\n", pdu.counts)
-			alldata := make([][]byte, 0, len(pdu.elements))
-			//第一遍遍历elements, 读取一个完整的数据单元
-			for _, element := range pdu.elements {
-				//定义好合适长度的buf,接收该元素数据
-				var buf = make([]byte, element.Length())
-				_, err := io.ReadFull(pdu.conn, buf)
+				err := element.Deal(pdu)
 				if err != nil {
-					fmt.Println("读取数据失败:", err)
+					fmt.Println("数据解析失败:", err)
 					return
 				}
-				alldata = append(alldata, buf)
 			}
 			fmt.Printf("[第%v个数据单元解析完成]\n", pdu.counts)
 			fmt.Println()
