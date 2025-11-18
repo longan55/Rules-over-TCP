@@ -74,26 +74,26 @@ func BIN2Uint64(bin []byte, order binary.ByteOrder) (uint64, error) {
 }
 
 // 无符号整形转BIN码
-var lengthErr = errors.New("需要更大的长度存储该数值")
+var LengthErr = errors.New("需要更大的长度存储该数值")
 
 // len: 最长8字节
 func Uint2BIN(n uint64, len uint8, order binary.ByteOrder) ([]byte, error) {
 	switch len {
 	case 1:
 		if n > math.MaxUint8 {
-			return nil, lengthErr
+			return nil, LengthErr
 		}
 		return []byte{byte(n)}, nil
 	case 2:
 		if n > math.MaxUint16 {
-			return nil, lengthErr
+			return nil, LengthErr
 		}
 		b := make([]byte, 2)
 		order.PutUint16(b, uint16(n))
 		return b, nil
 	case 3, 4:
 		if n > math.MaxUint32 {
-			return nil, lengthErr
+			return nil, LengthErr
 		}
 		b := make([]byte, 4)
 		order.PutUint32(b, uint32(n))

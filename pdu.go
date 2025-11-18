@@ -86,13 +86,6 @@ func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler
 	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
-func (duBuilder *ProtocolBuilder) NewHandler(fc FunctionCode) *FunctionHandler {
-	fh := &FunctionHandler{
-		fc: fc,
-	}
-	duBuilder.du.AddHandler(fc, fh)
-	return fh
-}
 
 func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	// 添加协议元素验证
