@@ -34,6 +34,7 @@ func SetDefaultOrder(order binary.ByteOrder) {
 	})
 }
 
+// DefaultOrder 返回默认字节序
 func DefaultOrder() binary.ByteOrder {
 	return defaultOrder
 }
@@ -56,11 +57,13 @@ type ProtocolBuilder struct {
 	du *ProtocolDataUnit
 }
 
+// SetDefaultOrder 设置默认字节序
 func (duBuilder *ProtocolBuilder) SetDefaultOrder(order binary.ByteOrder) *ProtocolBuilder {
 	defaultOrder = order
 	return duBuilder
 }
 
+// AddElement 添加协议元素
 func (duBuilder *ProtocolBuilder) AddElement(element ProtocolElement) *ProtocolBuilder {
 	duBuilder.du.elements = append(duBuilder.du.elements, element)
 	return duBuilder
@@ -72,21 +75,25 @@ func (duBuilder *ProtocolBuilder) AddCryptConfig(cryptConfig *CryptConfig) *Prot
 	return duBuilder
 }
 
+// AddCrypt 添加加密算法
 func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, cipher Cipher) *ProtocolBuilder {
 	duBuilder.du.AddCrypt(cryptFlag, cipher)
 	return duBuilder
 }
 
+// AddHandlerConfig 添加处理函数配置,应该只被调用一次
 func (duBuilder *ProtocolBuilder) AddHandlerConfig(config *HandlerConfig) *ProtocolBuilder {
 	duBuilder.du.handlerMap = config.handlerMap
 	return duBuilder
 }
 
+// AddHandler 添加处理函数
 func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler) *ProtocolBuilder {
 	duBuilder.du.AddHandler(fc, f)
 	return duBuilder
 }
 
+// Build 构建协议数据单元
 func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	// 添加协议元素验证
 	if len(duBuilder.du.elements) == 0 {
@@ -116,10 +123,10 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	return duBuilder.du, nil
 }
 
+// Protocol 协议接口
 type Protocol interface {
 	AddHandler(fc FunctionCode, f *FunctionHandler)
 	Handle(ctx context.Context, conn net.Conn)
-	// SetDataLength(length int)
 }
 
 var _ Protocol = (*ProtocolDataUnit)(nil)
@@ -156,6 +163,7 @@ func (pdu *ProtocolDataUnit) GetAllElements() []ProtocolElement {
 	return pdu.elements
 }
 
+// AddCrypt 添加加密算法
 func (pdu *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt Cipher) {
 	if pdu.cryptLib == nil {
 		pdu.cryptLib = make(map[int]Cipher)
@@ -163,6 +171,7 @@ func (pdu *ProtocolDataUnit) AddCrypt(cryptFlag int, crypt Cipher) {
 	pdu.cryptLib[cryptFlag] = crypt
 }
 
+// Decrypt 解密数据
 func (pdu *ProtocolDataUnit) Decrypt(cryptFlag int, src []byte) ([]byte, error) {
 	if pdu.cryptLib == nil {
 		return nil, errors.New("未配置加密算法")
@@ -173,6 +182,7 @@ func (pdu *ProtocolDataUnit) Decrypt(cryptFlag int, src []byte) ([]byte, error) 
 	return pdu.cryptLib[cryptFlag].Decrypt(src)
 }
 
+// AddHandler 添加处理函数
 func (pdu *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
 	if pdu.handlerMap == nil {
 		pdu.handlerMap = make(map[FunctionCode]*FunctionHandler)
@@ -180,6 +190,7 @@ func (pdu *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
 	pdu.handlerMap[fc] = f
 }
 
+// DoHandle 执行处理函数
 func (pdu *ProtocolDataUnit) DoHandle(code FunctionCode, payload []byte) error {
 	if handler, ok := pdu.handlerMap[code]; !ok {
 		return errors.New("未配置处理函数")
@@ -188,6 +199,7 @@ func (pdu *ProtocolDataUnit) DoHandle(code FunctionCode, payload []byte) error {
 	}
 }
 
+// Handle 处理连接
 func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
 	pdu.conn = conn
 	for {

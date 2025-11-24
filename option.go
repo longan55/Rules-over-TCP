@@ -28,10 +28,12 @@ func WithMode(mode CodecMode) CodecOption {
 	return &modeOption{mode}
 }
 
+// WithEncode 设置编码选项
 func WithEncode() CodecOption {
 	return &modeOption{mode: ModeEncode}
 }
 
+// WithDecode 设置解码选项
 func WithDecode() CodecOption {
 	return &modeOption{mode: ModeDecode}
 }
@@ -41,30 +43,35 @@ func WithCodec(codec Codec) CodecOption {
 	return &codecOption{codec}
 }
 
+// WithBin 设置二进制编解码器选项
 func WithBin() CodecOption {
 	return &codecOption{codec: &CodecBIN{
 		order: DefaultOrder(),
 	}}
 }
 
+// WithBinWithOrder 设置二进制编解码器选项
 func WithBinWithOrder(order binary.ByteOrder) CodecOption {
 	return &codecOption{codec: &CodecBIN{
 		order: order,
 	}}
 }
 
+// WithBcd 设置BCD编解码器选项
 func WithBcd() CodecOption {
 	return &codecOption{codec: &CodecBCD{
 		order: DefaultOrder(),
 	}}
 }
 
+// WithBcdWithOrder 设置BCD编解码器选项
 func WithBcdWithOrder(order binary.ByteOrder) CodecOption {
 	return &codecOption{codec: &CodecBCD{
 		order: order,
 	}}
 }
 
+// WithAscii 设置ASCII编解码器选项
 func WithAscii() CodecOption {
 	return &codecOption{codec: &CodecASCII{}}
 }
@@ -79,10 +86,12 @@ func WithDataTyper(dataTyper DataTyper) CodecOption {
 	return &dataTyperOption{dataTyper}
 }
 
+// WithInteger 设置整数解释器选项
 func WithInteger(moflag bool, multiple int, offset int) CodecOption {
 	return &dtInteger{moflag: moflag, multiple: multiple, offset: offset}
 }
 
+// WithFloat 设置浮点数解释器选项
 func WithFloat(moflag bool, multiple float64, offset float64) CodecOption {
 	return &dtFloat{moflag: moflag, multiple: multiple, offset: offset}
 }

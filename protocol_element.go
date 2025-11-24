@@ -86,6 +86,7 @@ type ProtocolDataUnitAccessor interface {
 	DoHandle(code FunctionCode, payload []byte) error
 }
 
+// PreprocessFunction 预处理函数
 type PreprocessFunction func(conn net.Conn, element ProtocolElement, pdu ProtocolDataUnitAccessor) error
 
 // DealFunction 处理函数
