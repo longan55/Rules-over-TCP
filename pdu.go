@@ -93,6 +93,10 @@ func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler
 	return duBuilder
 }
 
+func (duBuilder *ProtocolBuilder) HandleFunc(fc FunctionCode, f *FunctionHandler) {
+	duBuilder.du.AddHandler(fc, f)
+}
+
 // Build 构建协议数据单元
 func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 	// 添加协议元素验证
@@ -126,7 +130,7 @@ func (duBuilder *ProtocolBuilder) Build() (Protocol, error) {
 // Protocol 协议接口
 type Protocol interface {
 	AddHandler(fc FunctionCode, f *FunctionHandler)
-	Handle(ctx context.Context, conn net.Conn)
+	Serve(ctx context.Context, conn net.Conn)
 }
 
 var _ Protocol = (*ProtocolDataUnit)(nil)
@@ -199,8 +203,8 @@ func (pdu *ProtocolDataUnit) DoHandle(code FunctionCode, payload []byte) error {
 	}
 }
 
-// Handle 处理连接
-func (pdu *ProtocolDataUnit) Handle(ctx context.Context, conn net.Conn) {
+// Serve 处理连接
+func (pdu *ProtocolDataUnit) Serve(ctx context.Context, conn net.Conn) {
 	pdu.conn = conn
 	for {
 		select {

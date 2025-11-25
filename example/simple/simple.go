@@ -59,7 +59,7 @@ func main() {
 	defer cancel()
 
 	// 使用fake conn运行Handle方法
-	go dataHander.Handle(ctx, fakeConn)
+	go dataHander.Serve(ctx, fakeConn)
 
 	// 给Handle方法一些时间处理数据
 	time.Sleep(100 * time.Millisecond)
