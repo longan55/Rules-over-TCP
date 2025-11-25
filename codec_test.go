@@ -133,7 +133,7 @@ func setHandlerConfig(builder *ProtocolBuilder) {
 	fh.AddField("d", WithBin(), WithLength(2), WithFloat(true, 0.01, 0))
 	fh.AddField("e", WithBin(), WithLength(1), WithInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
-	fh.SetHandle(func(parsedData map[string]ParsedData) error {
+	fh.SetHandler(func(parsedData map[string]ParsedData) error {
 		fmt.Println("parsedData:", parsedData)
 		return nil
 	})

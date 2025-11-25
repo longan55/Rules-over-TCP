@@ -66,39 +66,73 @@ func main() {
 }
 
 func setHandlerConfig(builder *rot.ProtocolBuilder) {
+	// 原始方法 - 使用HandlerConfig
 	handlerConfig := rot.NewHandlerConfig()
-	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
-	fh := new(rot.FunctionHandler)
-	fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
-	fh.AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
-	fh.AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithInteger(true, 2, 0))
-	fh.AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithFloat(true, 0.01, 0))
-	fh.AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
-	fh.SetHandle(func(parsedData map[string]rot.ParsedData) error {
-		fmt.Println("parsedData:", parsedData)
-		return nil
-	})
-	//2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
-	fh1 := new(rot.FunctionHandler)
-	fh1.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithString())
-	fh1.AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithFloat(true, 0.0001, 0))
-	fh1.AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
+	// 1. BIN编码 - 使用新的API接口和链式调用
+	handler1 := rot.NewFunctionHandler().
+		AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
+		AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
+		AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithInteger(true, 2, 0)).
+		AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithFloat(true, 0.01, 0)).
+		AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"})).
+		SetHandler(func(parsedData map[string]rot.ParsedData) error {
+			fmt.Println("parsedData:", parsedData)
+			return nil
+		})
 
-	fh1.SetHandle(func(parsedData map[string]rot.ParsedData) error {
-		fmt.Println("parsedData:", parsedData)
-		return nil
-	})
-	//3. ASCII编码，仅解释为字符串
-	fh2 := new(rot.FunctionHandler)
-	fh2.AddField("ascii", rot.WithAscii(), rot.WithLength(4), rot.WithString())
-	fh2.SetHandle(func(parsedData map[string]rot.ParsedData) error {
-		fmt.Println("parsedData:", parsedData)
-		return nil
-	})
-	//end
-	handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)
-	handlerConfig.AddHandler(rot.FunctionCode(0x02), fh1)
-	handlerConfig.AddHandler(rot.FunctionCode(0x03), fh2)
+	// 2. BCD编码 - 使用链式调用
+	handler2 := rot.NewFunctionHandler().
+		AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithString()).
+		AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithFloat(true, 0.0001, 0)).
+		AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
+		SetHandler(func(parsedData map[string]rot.ParsedData) error {
+			fmt.Println("parsedData:", parsedData)
+			return nil
+		})
+
+	// 3. ASCII编码 - 使用链式调用
+	handler3 := rot.NewFunctionHandler().
+		AddField("ascii", rot.WithAscii(), rot.WithLength(4), rot.WithString()).
+		SetHandler(func(parsedData map[string]rot.ParsedData) error {
+			fmt.Println("parsedData:", parsedData)
+			return nil
+		})
+
+	// 注册处理器
+	handlerConfig.AddHandler(rot.FunctionCode(0x01), handler1)
+	handlerConfig.AddHandler(rot.FunctionCode(0x02), handler2)
+	handlerConfig.AddHandler(rot.FunctionCode(0x03), handler3)
 	builder.AddHandlerConfig(handlerConfig)
+
+	// 新方法1: 使用HandleFunc - 类似http处理函数注册
+	builder.HandleFunc(rot.FunctionCode(0x04), func(parsedData map[string]rot.ParsedData) error {
+		fmt.Println("使用HandleFunc注册的处理器:", parsedData)
+		return nil
+	})
+
+	// 新方法2: 使用HandleFuncWithFields - 带字段定义的处理函数注册
+	// 定义一个字段配置函数
+	addBinField := func(name string, length int) func(*rot.FunctionHandler) {
+		return func(fh *rot.FunctionHandler) {
+			fh.AddField(name, rot.WithBin(), rot.WithLength(length), rot.WithInteger(true, 1, 0))
+		}
+	}
+
+	// 直接在注册时定义字段结构
+	builder.HandleFuncWithFields(
+		rot.FunctionCode(0x05),
+		func(parsedData map[string]rot.ParsedData) error {
+			fmt.Println("使用HandleFuncWithFields注册的处理器:", parsedData)
+			return nil
+		},
+		addBinField("field1", 2),
+		addBinField("field2", 4),
+		func(fh *rot.FunctionHandler) {
+			fh.AddField("text", rot.WithAscii(), rot.WithLength(10), rot.WithString())
+		},
+	)
+
+	fmt.Println("Handler注册完成，可使用NewMessageEncoder进行消息编码发送")
+	fmt.Println("新增功能: 可使用HandleFunc和HandleFuncWithFields类似http方式注册处理函数")
 }
