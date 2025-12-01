@@ -68,41 +68,6 @@ func main() {
 }
 
 func setHandlerConfig(builder *rot.ProtocolBuilder) {
-	// handlerConfig := rot.NewHandlerConfig()
-	// //1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
-	// fh := new(rot.FunctionHandler)
-	// fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
-	// fh.AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
-	// fh.AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithInteger(true, 2, 0))
-	// fh.AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithFloat(true, 0.01, 0))
-	// fh.AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
-
-	// fh.SetHandler(func(parsedData map[string]rot.ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
-	// //2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
-	// fh1 := new(rot.FunctionHandler)
-	// fh1.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithString())
-	// fh1.AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithFloat(true, 0.0001, 0))
-	// fh1.AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithInteger(true, 1, 0))
-
-	// fh1.SetHandler(func(parsedData map[string]rot.ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
-	// //3. ASCII编码，仅解释为字符串
-	// fh2 := new(rot.FunctionHandler)
-	// fh2.AddField("ascii", rot.WithAscii(), rot.WithLength(4), rot.WithString())
-	// fh2.SetHandler(func(parsedData map[string]rot.ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
-	//end
-	// handlerConfig.AddHandler(rot.FunctionCode(0x01), fh)
-	// handlerConfig.AddHandler(rot.FunctionCode(0x02), fh1)
-	// handlerConfig.AddHandler(rot.FunctionCode(0x03), fh2)
-	// builder.AddHandlerConfig(handlerConfig)
 	builder.HandleFuncWithFields(rot.FunctionCode(0x01), Handle01, Parse01)
 	builder.HandleFuncWithFields(rot.FunctionCode(0x02), Handle02, Parse02)
 	builder.HandleFuncWithFields(rot.FunctionCode(0x03), Handle03, Parse03)
