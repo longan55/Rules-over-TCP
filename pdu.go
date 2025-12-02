@@ -81,34 +81,22 @@ func (duBuilder *ProtocolBuilder) AddCrypt(cryptFlag int, cipher Cipher) *Protoc
 	return duBuilder
 }
 
-// AddHandlerConfig 添加处理函数配置,应该只被调用一次
-func (duBuilder *ProtocolBuilder) AddHandlerConfig(config *HandlerConfig) *ProtocolBuilder {
-	duBuilder.du.handlerMap = config.handlerMap
-	return duBuilder
-}
-
-// AddHandler 添加处理函数
-func (duBuilder *ProtocolBuilder) AddHandler(fc FunctionCode, f *FunctionHandler) *ProtocolBuilder {
-	duBuilder.du.AddHandler(fc, f)
-	return duBuilder
-}
-
-// HandleFunc 添加处理函数，类似于http处理函数注册方式
-// 可以直接传入匿名函数作为处理逻辑
-func (duBuilder *ProtocolBuilder) HandleFunc(fc FunctionCode, handler Handler) *ProtocolBuilder {
+func (duBuilder *ProtocolBuilder) HandleFunc(fc FunctionCode, fields ...func(*FunctionHandler)) *ProtocolBuilder {
 	// 创建一个新的FunctionHandler实例
 	functionHandler := NewFunctionHandler()
-	// 设置处理函数
-	functionHandler.SetHandler(handler)
+	// 应用所有字段定义
+	for _, fieldDef := range fields {
+		fieldDef(functionHandler)
+	}
 	// 添加到handlerMap中
 	duBuilder.du.AddHandler(fc, functionHandler)
 	return duBuilder
 }
 
-// HandleFuncWithFields 带字段定义的处理函数注册，类似于http处理函数注册方式
+// HandleFuncWithParse 带字段定义的处理函数注册，类似于http处理函数注册方式
 // 可以直接传入匿名函数作为处理逻辑，并同时定义字段结构
 // fields是一个字段定义列表，每个字段定义是一个函数，用于配置FunctionHandler
-func (duBuilder *ProtocolBuilder) HandleFuncWithFields(fc FunctionCode, handler Handler, fields ...func(*FunctionHandler)) *ProtocolBuilder {
+func (duBuilder *ProtocolBuilder) HandleFuncWithParse(fc FunctionCode, handler Handler, fields ...func(*FunctionHandler)) *ProtocolBuilder {
 	// 创建一个新的FunctionHandler实例
 	functionHandler := NewFunctionHandler()
 	// 应用所有字段定义

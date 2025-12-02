@@ -124,39 +124,5 @@ func TestCodec2_Parse2(t *testing.T) {
 }
 
 func setHandlerConfig(builder *ProtocolBuilder) {
-	handlerConfig := NewHandlerConfig()
-	//1. BIN编码,默认解释为整数，强烈建议只解释为整数或浮点数，不要解释为字符串。
-	fh := new(FunctionHandler)
-	fh.AddField("a", WithBin(), WithLength(4), WithInteger(true, 1, 0))
-	fh.AddField("b", WithBin(), WithLength(4), WithInteger(true, 1, 0))
-	fh.AddField("c", WithBin(), WithLength(2), WithInteger(true, 2, 0))
-	fh.AddField("d", WithBin(), WithLength(2), WithFloat(true, 0.01, 0))
-	fh.AddField("e", WithBin(), WithLength(1), WithInteger(true, 1, 0), WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"}))
 
-	fh.SetHandler(func(parsedData map[string]ParsedData) error {
-		fmt.Println("parsedData:", parsedData)
-		return nil
-	})
-	// //2. BCD编码，默认解释为字符串，还可以解释为整数或浮点数，浮点数较为常见（在需要高精度传输时）
-	// fh1 := new(FunctionHandler)
-	// fh1.NewDecoder("code", binary.BigEndian).BCD().SetByteLength(4).String()
-	// fh1.NewDecoder("price", binary.BigEndian).BCD().SetByteLength(4).Float().DecimalPlace(4)
-	// fh1.NewDecoder("intPrice", binary.BigEndian).BCD().SetByteLength(4).Integer()
-
-	// fh1.SetHandle(func(parsedData map[string]ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
-	// //3. ASCII编码，仅解释为字符串
-	// fh2 := new(FunctionHandler)
-	// fh2.NewDecoder("ascii", binary.BigEndian).ASCII().SetByteLength(4).String()
-	// fh2.SetHandle(func(parsedData map[string]ParsedData) error {
-	// 	fmt.Println("parsedData:", parsedData)
-	// 	return nil
-	// })
-	//end
-	handlerConfig.AddHandler(FunctionCode(0x01), fh)
-	// handlerConfig.AddHandler(FunctionCode(0x02), fh1)
-	// handlerConfig.AddHandler(FunctionCode(0x03), fh2)
-	builder.AddHandlerConfig(handlerConfig)
 }

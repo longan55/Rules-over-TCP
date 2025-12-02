@@ -49,7 +49,7 @@ func main() {
 	builder.AddCryptConfig(cryptConfig)
 
 	//配置处理器，来数据时自动处理
-	setHandlerConfig(builder)
+	RegisterHandlers(builder)
 
 	// 创建FakeConn并设置测试数据
 	fakeConn := fake.NewFakeConn()
@@ -65,10 +65,4 @@ func main() {
 
 	// 给Handle方法一些时间处理数据
 	time.Sleep(100 * time.Millisecond)
-}
-
-func setHandlerConfig(builder *rot.ProtocolBuilder) {
-	builder.HandleFuncWithFields(rot.FunctionCode(0x01), Handle01, Parse01)
-	builder.HandleFuncWithFields(rot.FunctionCode(0x02), Handle02, Parse02)
-	builder.HandleFuncWithFields(rot.FunctionCode(0x03), Handle03, Parse03)
 }

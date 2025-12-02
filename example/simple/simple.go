@@ -47,7 +47,7 @@ func main() {
 	builder.AddCryptConfig(cryptConfig)
 
 	//配置处理器，来数据时自动处理
-	setHandlerConfig(builder)
+	RegisterHandlerConfig(builder)
 
 	// 创建FakeConn并设置测试数据
 	fakeConn := fake.NewFakeConn()
@@ -65,74 +65,36 @@ func main() {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func setHandlerConfig(builder *rot.ProtocolBuilder) {
-	// 原始方法 - 使用HandlerConfig
-	handlerConfig := rot.NewHandlerConfig()
+func RegisterHandlerConfig(builder *rot.ProtocolBuilder) {
+	builder.HandleFunc(rot.FunctionCode(0x01), func(fh *rot.FunctionHandler) {
+		fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
+			AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
+			AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithInteger(true, 2, 0)).
+			AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithFloat(true, 0.01, 0)).
+			AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"})).
+			SetHandler(func(parsedData map[string]rot.ParsedData) error {
+				fmt.Println("parsedData:", parsedData)
+				return nil
+			})
+	})
 
-	// 1. BIN编码 - 使用新的API接口和链式调用
-	handler1 := rot.NewFunctionHandler().
-		AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
-		AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
-		AddField("c", rot.WithBin(), rot.WithLength(2), rot.WithInteger(true, 2, 0)).
-		AddField("d", rot.WithBin(), rot.WithLength(2), rot.WithFloat(true, 0.01, 0)).
-		AddField("e", rot.WithBin(), rot.WithLength(1), rot.WithInteger(true, 1, 0), rot.WithEnum("Other", map[int]any{0: "A", 1: "B", 2: "C"})).
-		SetHandler(func(parsedData map[string]rot.ParsedData) error {
-			fmt.Println("parsedData:", parsedData)
-			return nil
-		})
+	builder.HandleFunc(rot.FunctionCode(0x02), ParseHandle02)
+	builder.HandleFunc(rot.FunctionCode(0x03), ParseHandle03)
+}
 
-	// 2. BCD编码 - 使用链式调用
-	handler2 := rot.NewFunctionHandler().
-		AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithString()).
+func ParseHandle02(fh *rot.FunctionHandler) {
+	fh.AddField("code", rot.WithBcd(), rot.WithLength(4), rot.WithString()).
 		AddField("price", rot.WithBcd(), rot.WithLength(4), rot.WithFloat(true, 0.0001, 0)).
 		AddField("intPrice", rot.WithBcd(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
 		SetHandler(func(parsedData map[string]rot.ParsedData) error {
 			fmt.Println("parsedData:", parsedData)
 			return nil
 		})
-
-	// 3. ASCII编码 - 使用链式调用
-	handler3 := rot.NewFunctionHandler().
-		AddField("ascii", rot.WithAscii(), rot.WithLength(4), rot.WithString()).
+}
+func ParseHandle03(fh *rot.FunctionHandler) {
+	fh.AddField("ascii", rot.WithAscii(), rot.WithLength(4), rot.WithString()).
 		SetHandler(func(parsedData map[string]rot.ParsedData) error {
 			fmt.Println("parsedData:", parsedData)
 			return nil
 		})
-
-	// 注册处理器
-	handlerConfig.AddHandler(rot.FunctionCode(0x01), handler1)
-	handlerConfig.AddHandler(rot.FunctionCode(0x02), handler2)
-	handlerConfig.AddHandler(rot.FunctionCode(0x03), handler3)
-	builder.AddHandlerConfig(handlerConfig)
-
-	// 新方法1: 使用HandleFunc - 类似http处理函数注册
-	builder.HandleFunc(rot.FunctionCode(0x04), func(parsedData map[string]rot.ParsedData) error {
-		fmt.Println("使用HandleFunc注册的处理器:", parsedData)
-		return nil
-	})
-
-	// 新方法2: 使用HandleFuncWithFields - 带字段定义的处理函数注册
-	// 定义一个字段配置函数
-	addBinField := func(name string, length int) func(*rot.FunctionHandler) {
-		return func(fh *rot.FunctionHandler) {
-			fh.AddField(name, rot.WithBin(), rot.WithLength(length), rot.WithInteger(true, 1, 0))
-		}
-	}
-
-	// 直接在注册时定义字段结构
-	builder.HandleFuncWithFields(
-		rot.FunctionCode(0x05),
-		func(parsedData map[string]rot.ParsedData) error {
-			fmt.Println("使用HandleFuncWithFields注册的处理器:", parsedData)
-			return nil
-		},
-		addBinField("field1", 2),
-		addBinField("field2", 4),
-		func(fh *rot.FunctionHandler) {
-			fh.AddField("text", rot.WithAscii(), rot.WithLength(10), rot.WithString())
-		},
-	)
-
-	fmt.Println("Handler注册完成，可使用NewMessageEncoder进行消息编码发送")
-	fmt.Println("新增功能: 可使用HandleFunc和HandleFuncWithFields类似http方式注册处理函数")
 }
