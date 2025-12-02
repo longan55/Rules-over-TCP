@@ -233,7 +233,21 @@ func NewSerialNumber() ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:        SerialNumber,
 		name:       "序 列 号 ",
+		order:      binary.BigEndian,
 		selfLength: 2,
+	}
+	element.PreprocessFunc = func(conn net.Conn, element ProtocolElement, pdu ProtocolDataUnitAccessor) error {
+		buf := make([]byte, element.SelfLength())
+		_, err := io.ReadFull(conn, buf)
+		if err != nil {
+			fmt.Println("读取数据失败:", err)
+			return err
+		}
+		element.SetSource(buf)
+		sn := Bin2Int(buf, element.GetOrder())
+		element.SetRealValue(int16(sn))
+		fmt.Printf("序列号:\t\t\t[%d]\n", sn)
+		return nil
 	}
 	element.DealFunc = func(element ProtocolElement, pdu ProtocolDataUnitAccessor) error {
 		if pdu == nil {
@@ -337,7 +351,7 @@ func NewPayload() ProtocolElement {
 		if !ok {
 			return errors.New("Length元素值不是整数")
 		}
-		buf := make([]byte, length-2)
+		buf := make([]byte, length-4)
 		_, err := io.ReadFull(conn, buf)
 		if err != nil {
 			fmt.Println("读取数据失败:", err)
@@ -361,13 +375,14 @@ func NewPayload() ProtocolElement {
 	return element
 }
 
-func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
+func NewCheckSum(checksumType uint8, selfLength int, order binary.ByteOrder) ProtocolElement {
 	element := &ProtocolElementImpl{
 		Typ:          Checksum,
 		name:         "校 验 码",
 		defaultValue: nil,
 		selfLength:   selfLength,
 		checksumType: checksumType,
+		order:        order,
 	}
 	element.PreprocessFunc = func(conn net.Conn, element ProtocolElement, pdu ProtocolDataUnitAccessor) error {
 		buf := make([]byte, element.SelfLength())
@@ -376,7 +391,10 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 			fmt.Println("读取数据失败:", err)
 			return err
 		}
+		//
 		element.SetSource(buf)
+		sum := element.GetOrder().Uint16(buf)
+		element.SetRealValue(sum)
 		fmt.Printf("校 验 码:\t\t[% #0X]\n", buf)
 		return nil
 	}
@@ -398,11 +416,13 @@ func NewCheckSum(checksumType uint8, selfLength int) ProtocolElement {
 			}
 			full = append(full, src...)
 		}
-		checksum := CheckSum(element.ChecksumType(), full)
-		if !bytes.Equal(checksum, checksum0) {
-			return fmt.Errorf("校验码错误Need:%0X,But:%0X", checksum, checksum0)
+		checksumBytes := CheckSum(element.ChecksumType(), full)
+		checksum := binary.BigEndian.Uint16(checksumBytes)
+
+		if checksum != element.RealValue().(uint16) {
+			return fmt.Errorf("校验码错误Need:%0X,But:%0X", checksumBytes, checksum0)
 		}
-		fmt.Printf("校验码类型:%d,计算校验码:% #0X,校验通过\n", element.ChecksumType(), checksum)
+		fmt.Printf("校验码类型:%d,计算校验码:% #0X,校验通过\n", element.ChecksumType(), checksumBytes)
 		return nil
 	}
 	return element

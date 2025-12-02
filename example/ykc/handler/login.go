@@ -1,6 +1,10 @@
 package handler
 
-import rot "github.com/longan55/Rules-over-TCP"
+import (
+	"fmt"
+
+	rot "github.com/longan55/Rules-over-TCP"
+)
 
 func CheckLogin(fh *rot.FunctionHandler) {
 	fh.AddField("pile_code", rot.WithBcd(), rot.WithLength(7), rot.WithString())
@@ -27,9 +31,15 @@ func CheckLogin(fh *rot.FunctionHandler) {
 	fh.AddField("operator", rot.WithBin(), rot.WithLength(1), rot.WithInteger(false, 1, 0), rot.WithEnum(
 		"未知运营商", map[int]any{
 			0: "移动",
-			1: "电信",
-			2: "联通",
-			3: "其他",
+			2: "电信",
+			3: "联通",
+			4: "其他",
 		},
 	))
+	fh.SetHandler(func(parsedData map[string]rot.ParsedData) error {
+		for fieldName, parsedData := range parsedData {
+			fmt.Printf("[%s]:RealValue:%v; Expected:%v; Source:%# 02X\n", fieldName, parsedData.Origin, parsedData.Explained, parsedData.Bytes)
+		}
+		return nil
+	})
 }

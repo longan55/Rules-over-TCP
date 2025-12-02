@@ -209,6 +209,7 @@ func (pdu *ProtocolDataUnit) AddHandler(fc FunctionCode, f *FunctionHandler) {
 
 // DoHandle 执行处理函数
 func (pdu *ProtocolDataUnit) DoHandle(code FunctionCode, payload []byte) error {
+	fmt.Printf("函数码:\t\t%v,%+v\n", code, pdu.handlerMap)
 	if handler, ok := pdu.handlerMap[code]; !ok {
 		return errors.New("未配置处理函数")
 	} else {

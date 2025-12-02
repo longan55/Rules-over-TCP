@@ -35,7 +35,7 @@ func main() {
 		AddElement(rot.NewCyptoFlag()).
 		AddElement(rot.NewFuncCode()).
 		AddElement(rot.NewPayload()).
-		AddElement(rot.NewCheckSum(0, 2))
+		AddElement(rot.NewCheckSum(0, 2, binary.BigEndian))
 	dataHander, err := builder.Build()
 	if err != nil {
 		fmt.Println("构建处理器失败:", err)

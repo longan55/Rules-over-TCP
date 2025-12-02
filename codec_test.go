@@ -100,7 +100,7 @@ func TestCodec2_Parse2(t *testing.T) {
 		AddElement(NewCyptoFlag()).
 		AddElement(NewFuncCode()).
 		AddElement(NewPayload()).
-		AddElement(NewCheckSum(0, 2))
+		AddElement(NewCheckSum(0, 2, binary.BigEndian))
 	dataHander, err := builder.Build()
 	if err != nil {
 		fmt.Println("构建处理器失败:", err)
