@@ -63,14 +63,12 @@ func NewFunctionHandler() *FunctionHandler {
 func (fh *FunctionHandler) AddField(fieldName string, options ...CodecOption) *FunctionHandler {
 	fcc := NewFieldCodecConfig(fieldName, options...)
 	fh.fccs = append(fh.fccs, fcc)
+	fh.length += fcc.length
 	return fh
 }
 
 // SetHandler 设置处理函数，并计算总长度
 func (fh *FunctionHandler) SetHandler(h Handler) *FunctionHandler {
-	for _, fcc := range fh.fccs {
-		fh.length += fcc.length
-	}
 	fh.handler = h
 	return fh
 }
