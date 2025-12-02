@@ -21,6 +21,7 @@ import (
 	"time"
 
 	rot "github.com/longan55/Rules-over-TCP"
+	"github.com/longan55/Rules-over-TCP/example/ykc/handler"
 	"github.com/longan55/Rules-over-TCP/fake"
 )
 
@@ -50,10 +51,10 @@ func main() {
 	builder.AddCryptConfig(cryptConfig)
 
 	//配置处理器，来数据时自动处理
-	RegisterHandlers(builder)
+	handler.RegisterHandlers(builder)
 
 	// 创建FakeConn并设置测试数据
-	fakeConn := fake.NewFakeConn()
+	fakeConn := getConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -63,4 +64,16 @@ func main() {
 
 	// 给Handle方法一些时间处理数据
 	time.Sleep(100 * time.Millisecond)
+}
+
+func getConn() *fake.FakeConn {
+	conn := fake.NewFakeConn()
+	conn.SetData([]byte{0x68,
+		0x22,
+		0x00, 0x00,
+		0x00,
+		0x01,
+		0x55, 0x03, 0x14, 0x12, 0x78, 0x23, 0x05, 0x00, 0x02, 0x0A, 0x56, 0x34, 0x2E, 0x31, 0x2E, 0x35, 0x30, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x04,
+		0x67, 0x5A})
+	return conn
 }
