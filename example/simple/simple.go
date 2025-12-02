@@ -66,6 +66,9 @@ func main() {
 }
 
 func RegisterHandlerConfig(builder *rot.ProtocolBuilder) {
+	builder.HandleFunc(rot.FunctionCode(0x02), ParseHandle02)
+	builder.HandleFunc(rot.FunctionCode(0x03), ParseHandle03)
+
 	builder.HandleFunc(rot.FunctionCode(0x01), func(fh *rot.FunctionHandler) {
 		fh.AddField("a", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
 			AddField("b", rot.WithBin(), rot.WithLength(4), rot.WithInteger(true, 1, 0)).
@@ -77,9 +80,6 @@ func RegisterHandlerConfig(builder *rot.ProtocolBuilder) {
 				return nil
 			})
 	})
-
-	builder.HandleFunc(rot.FunctionCode(0x02), ParseHandle02)
-	builder.HandleFunc(rot.FunctionCode(0x03), ParseHandle03)
 }
 
 func ParseHandle02(fh *rot.FunctionHandler) {
